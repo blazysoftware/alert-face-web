@@ -1,172 +1,209 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🚨 Sistema de Monitoramento Policial IA</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Face Detection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
 </head>
+
 <body>
-  <header class="police-header">
-    <div class="badge">🚔</div>
-    <div class="title">
-      <h1>SISTEMA DE MONITORAMENTO POLICIAL</h1>
-      <p>Unidade: <span id="unitId">WEBCAM-001</span> | Localização: <span id="location">Entrada Principal</span></p>
-    </div>
-    <div class="status-indicator">
-      <div class="indicator" id="systemStatus">🔴 OFFLINE</div>
-      <div class="time" id="currentTime">--:--:--</div>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <h1 class="logo">AI Detection</h1>
+      <button class="menu-btn" id="menuBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
     </div>
   </header>
 
-  <main class="police-app">
-    <!-- Painel de Controle Central -->
-    <section class="control-center">
-      <div class="control-panel">
-        <h3>🎛️ CONTROLE OPERACIONAL</h3>
-        <div class="main-controls">
-          <button id="btnStart" class="btn-primary">🚨 ATIVAR SISTEMA</button>
-          <button id="btnStop" class="btn-danger" disabled>⏹️ DESATIVAR</button>
-          <button id="btnCapture" class="btn-capture">📸 CAPTURA IMEDIATA</button>
-          <button id="btnTest" class="btn-test">🧪 TESTE COMUNICAÇÃO</button>
-        </div>
-      </div>
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Video Container -->
+    <div class="video-section">
+      <div class="video-container">
+        <video id="video" playsinline autoplay muted></video>
+        <canvas id="overlay"></canvas>
+        <canvas id="capture" style="display: none;"></canvas>
+        
+        <!-- Auto-start Overlay -->
+        <div class="auto-start-overlay" id="autoStartOverlay">
+          <div class="auto-start-content"> 
 
-      <div class="settings-panel">
-        <h3>⚙️ CONFIGURAÇÕES DE DETECÇÃO</h3>
-        <div class="settings-grid">
-          <label>🎯 Sensibilidade Pessoas:
-            <input id="confidence" type="range" min="0" max="1" step="0.05" value="0.6" />
-            <span id="confidenceValue">60%</span>
-          </label>
-          <label>👤 Sensibilidade Rostos:
-            <input id="faceConfidence" type="range" min="0" max="1" step="0.05" value="0.7" />
-            <span id="faceConfidenceValue">70%</span>
-          </label>
-          <label>⏱️ Intervalo Alertas:
-            <input id="cooldown" type="range" min="0" max="60" value="5" />
-            <span id="cooldownValue">5s</span>
-          </label>
-          <label>⚡ Performance (FPS):
-            <input id="performance" type="range" min="1" max="30" value="5" />
-            <span id="performanceValue">5 FPS (Mobile)</span>
-          </label>
-          <label class="checkbox">
-            <input id="drawBoxes" type="checkbox" checked />
-            📋 Mostrar Detecções Visuais
-          </label>
-          <label class="checkbox">
-            <input id="captureEnabled" type="checkbox" checked />
-            📷 Captura Automática
-          </label>
-        </div>
-      </div>
-    </section>
-
-    <!-- Monitor Principal -->
-    <section class="monitor-section">
-      <div class="video-monitor">
-        <div class="monitor-header">
-          <h3>📹 MONITOR PRINCIPAL</h3>
-          <div class="monitor-controls">
-            <button id="toggleBoxes">👁️ BOXES</button>
-            <button id="toggleFullscreen">⛶ TELA CHEIA</button>
-          </div>
-        </div>
-        <div class="video-container">
-          <video id="video" playsinline autoplay muted></video>
-          <canvas id="overlay"></canvas>
-          <canvas id="capture" style="display: none;"></canvas>
-          <div class="recording-indicator" id="recordingIndicator">🔴 REC</div>
-        </div>
-      </div>
-
-      <!-- Painel de Informações -->
-      <div class="info-panels">
-        <!-- Status dos Modelos -->
-        <div class="info-card">
-          <h4>� STATUS DOS MODELOS IA</h4>
-          <div class="model-status">
-            <div class="model-item">
-              <span class="model-name">👥 COCO-SSD (Pessoas)</span>
-              <span class="model-status-badge" id="modelStatus">⏳ Carregando...</span>
-            </div>
-            <div class="model-item">
-              <span class="model-name">😊 BlazeFace (Rostos)</span>
-              <span class="model-status-badge" id="faceModelStatus">⏳ Carregando...</span>
-            </div>
-          </div>
-          <div class="model-controls">
-            <button id="btnModelInfo" class="btn-small">ℹ️ Detalhes</button>
-            <button id="btnClearCache" class="btn-small">🗑️ Limpar Cache</button>
-            <button id="btnForceDownload" class="btn-small">⬇️ Recarregar</button>
+            <div class="countdown" id="countdown">5</div>
+            <h3>Câmera será ativada automaticamente</h3>
+            <button class="btn-primary" id="startNowBtn">Ativar Agora</button>
+            <button class="btn-secondary" id="cancelAutoBtn">Cancelar</button>
           </div>
         </div>
 
-        <!-- Detecções Ativas -->
-        <div class="info-card">
-          <h4>🎯 DETECÇÕES ATIVAS</h4>
-          <div class="detection-stats">
-            <div class="stat-item">
-              <span class="stat-icon">👥</span>
-              <span class="stat-label">Pessoas</span>
-              <span class="stat-value" id="personCount">0</span>
+        <!-- Camera Permission -->
+        <div class="camera-permission" id="cameraPermission" style="display: none;">
+          <div class="permission-content">
+            <div class="permission-icon">🎥</div>
+            <h3>Permitir acesso à câmera?</h3>
+            <p>Necessário para detecção facial</p>
+            <div class="permission-actions">
+              <button class="btn-primary" id="allowCameraBtn">Permitir</button>
+              <label class="remember-choice">
+                <input type="checkbox" id="rememberChoice"> Lembrar escolha
+              </label>
             </div>
-            <div class="stat-item">
-              <span class="stat-icon">😊</span>
-              <span class="stat-label">Rostos</span>
-              <span class="stat-value" id="faceCount">0</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-icon">🚨</span>
-              <span class="stat-label">Total</span>
-              <span class="stat-value" id="totalDetections">0</span>
-            </div>
-          </div>
-          <div class="detection-status" id="detectStatus">🔍 Aguardando detecções...</div>
-        </div>
-
-        <!-- Histórico de Eventos -->
-        <div class="info-card">
-          <h4>📋 REGISTRO DE EVENTOS</h4>
-          <div class="event-log" id="eventLog">
-            <div class="log-entry">🟡 Sistema inicializado</div>
           </div>
         </div>
 
-        <!-- Comunicação -->
-        <div class="info-card">
-          <h4>📡 STATUS COMUNICAÇÃO</h4>
-          <div class="comm-status">
-            <div class="webhook-url">
-              <label>🌐 Endpoint:</label>
-              <input id="webhookUrl" type="url" value="https://workflow.blazysoftware.com.br/webhook/pego-no-pulo" placeholder="URL do webhook" />
-            </div>
-            <div class="comm-info">
-              <span class="comm-label">Último Envio:</span>
-              <span class="comm-value" id="lastSend">Nenhum</span>
-            </div>
-            <div class="comm-info">
-              <span class="comm-label">Status Câmera:</span>
-              <span class="comm-value" id="cameraStatus">🔴 Offline</span>
-            </div>
+        <!-- Loading -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+          <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">Carregando modelos IA...</p>
           </div>
         </div>
       </div>
-    </section>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="control-btn" id="toggleBtn">
+          <span class="btn-text">Iniciar</span>
+        </button>
+        <button class="control-btn secondary" id="captureBtn" disabled>
+          <span class="btn-text">Capturar</span>
+        </button>
+        <!-- Debug button -->
+        <button class="control-btn secondary" id="debugBtn" style="display: none;">
+          <span class="btn-text">Debug Stop</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-section">
+      <div class="stat-card">
+        <div class="stat-value" id="personCount">0</div>
+        <div class="stat-label">Pessoas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="faceCount">0</div>
+        <div class="stat-label">Rostos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalDetections">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+    </div>
+
+    <!-- Quick Settings -->
+    <div class="quick-settings">
+      <div class="setting-item">
+        <span class="setting-label">Desenhar caixas</span>
+        <label class="toggle">
+          <input type="checkbox" id="drawBoxes" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <span class="setting-label">Captura automática</span>
+        <label class="toggle">
+          <input type="checkbox" id="captureEnabled" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
   </main>
 
-  <footer class="police-footer">
-    <div class="footer-info">
-      <span>⚡ Powered by TensorFlow.js | 🛡️ Sistema de Segurança IA | 📅 <span id="currentDate"></span></span>
+  <!-- Side Menu -->
+  <div class="side-menu" id="sideMenu">
+    <div class="menu-header">
+      <h2>Configurações</h2>
+      <button class="close-menu" id="closeMenu">×</button>
     </div>
-  </footer>
+    
+    <div class="menu-content">
+      <!-- Webhook Settings -->
+      <div class="menu-section">
+        <h3>Webhook</h3>
+        <div class="input-group">
+          <label>URL do Webhook</label>
+          <input type="url" id="webhookUrl" placeholder="https://workflow.blazysoftware.com.br/webhook/pego-no-pulo">
+        </div>
+        <button class="btn-secondary full-width" id="testWebhook">Testar Conexão</button>
+        <div class="status-text" id="webhookStatus">Não configurado</div>
+      </div>
+
+      <!-- Detection Settings -->
+      <div class="menu-section">
+        <h3>Detecção</h3>
+        
+        <div class="range-group">
+          <label>Sensibilidade Pessoas</label>
+          <input type="range" id="confidence" min="0" max="1" step="0.05" value="0.6">
+          <span class="range-value" id="confidenceValue">60%</span>
+        </div>
+
+        <div class="range-group">
+          <label>Sensibilidade Rostos</label>
+          <input type="range" id="faceConfidence" min="0" max="1" step="0.05" value="0.7">
+          <span class="range-value" id="faceConfidenceValue">70%</span>
+        </div>
+
+        <div class="range-group">
+          <label>Intervalo de Alertas</label>
+          <input type="range" id="cooldown" min="0" max="60" value="5">
+          <span class="range-value" id="cooldownValue">5s</span>
+        </div>
+
+        <div class="range-group">
+          <label>Performance (FPS)</label>
+          <input type="range" id="performance" min="1" max="30" value="5">
+          <span class="range-value" id="performanceValue">5 FPS (Mobile)</span>
+        </div>
+      </div>
+
+      <!-- System Info -->
+      <div class="menu-section">
+        <h3>Sistema</h3>
+        <div class="info-item">
+          <span>Status da Câmera</span>
+          <span class="status-badge" id="cameraStatus">Offline</span>
+        </div>
+        <div class="info-item">
+          <span>Modelo Pessoas</span>
+          <span class="status-badge" id="modelStatus">Carregando</span>
+        </div>
+        <div class="info-item">
+          <span>Modelo Faces</span>
+          <span class="status-badge" id="faceModelStatus">Carregando</span>
+        </div>
+        <div class="info-item">
+          <span>Último Envio</span>
+          <span class="status-text" id="lastSend">Nunca</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="menu-section">
+        <h3>Ações</h3>
+        <button class="btn-secondary full-width" id="clearCache">Limpar Cache</button>
+        <button class="btn-secondary full-width" id="modelInfo">Info dos Modelos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <script src="app.js"></script>
-</body>
-</html>
 </body>
 </html>
