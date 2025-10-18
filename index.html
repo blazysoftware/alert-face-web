@@ -19,9 +19,6 @@
     <div class="header-content">
       <h1 class="logo">AI Detection</h1>
       <div class="header-actions">
-        <button class="theme-toggle" id="themeToggle" title="Alternar tema">
-          <span class="theme-icon">🌙</span>
-        </button>
         <button class="menu-btn" id="menuBtn">
           <span></span>
           <span></span>
@@ -108,14 +105,14 @@
     <!-- Quick Settings -->
     <div class="quick-settings">
       <div class="setting-item">
-        <span class="setting-label">Desenhar caixas</span>
+        <span class="setting-label">Desenhar Elemento</span>
         <label class="toggle">
           <input type="checkbox" id="drawBoxes" checked>
           <span class="slider"></span>
         </label>
       </div>
       <div class="setting-item">
-        <span class="setting-label">Captura automática</span>
+        <span class="setting-label">Enviar Captura</span>
         <label class="toggle">
           <input type="checkbox" id="captureEnabled" checked>
           <span class="slider"></span>
@@ -177,7 +174,7 @@
         </div>
 
         <div class="range-group">
-          <label>⏩ Delay Captura (Frames para Frente)</label>
+          <label>Delay Captura (Frames para Frente)</label>
           <input type="range" id="captureDelay" min="0" max="8" value="3">
           <span class="range-value" id="captureDelayValue">3 frames (~600ms)</span>
         </div>
