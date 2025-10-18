@@ -18,11 +18,16 @@
   <header class="header">
     <div class="header-content">
       <h1 class="logo">AI Detection</h1>
-      <button class="menu-btn" id="menuBtn">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" title="Alternar tema">
+          🌙
+        </button>
+        <button class="menu-btn" id="menuBtn">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -192,6 +197,18 @@
         <div class="info-item">
           <span>Último Envio</span>
           <span class="status-text" id="lastSend">Nunca</span>
+        </div>
+      </div>
+
+      <!-- Theme Settings -->
+      <div class="menu-section">
+        <h3>Aparência</h3>
+        <div class="setting-item">
+          <span class="setting-label">Tema Escuro</span>
+          <label class="toggle">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
 

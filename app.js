@@ -33,6 +33,10 @@ const els = {
   closeMenu: document.getElementById('closeMenu'),
   overlay: document.getElementById('overlay'),
   
+  // Theme
+  themeToggle: document.getElementById('themeToggle'),
+  darkModeToggle: document.getElementById('darkModeToggle'),
+  
   // Stats
   personCount: document.getElementById('personCount'),
   faceCount: document.getElementById('faceCount'),
@@ -92,6 +96,54 @@ const state = {
   // Sistema de delay para frente
   pendingCapture: null, // {frameCount: X, detectionInfo: {}, scheduledAt: timestamp}
   currentFrameCount: 0
+};
+
+// Theme Management
+const Theme = {
+  init() {
+    // Check saved theme preference or default to light
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    this.setTheme(savedTheme);
+    
+    // Update UI elements
+    this.updateThemeUI();
+  },
+
+  setTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      els.themeToggle.innerHTML = '☀️';
+      els.themeToggle.title = 'Modo claro';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      els.themeToggle.innerHTML = '🌙';
+      els.themeToggle.title = 'Modo escuro';
+    }
+    
+    // Save preference
+    localStorage.setItem('theme', theme);
+    
+    // Update menu toggle
+    if (els.darkModeToggle) {
+      els.darkModeToggle.checked = theme === 'dark';
+    }
+  },
+
+  toggle() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    this.setTheme(newTheme);
+    
+    // Show toast
+    Utils.showToast(`Tema ${newTheme === 'dark' ? 'escuro' : 'claro'} ativado`, 'success');
+  },
+
+  updateThemeUI() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (els.darkModeToggle) {
+      els.darkModeToggle.checked = isDark;
+    }
+  }
 };
 
 // Utility Functions
@@ -654,7 +706,8 @@ const Notifier = {
 
   async sendSecurityAlert(detectionInfo, imageBase64 = null) {
     const payload = {
-      event: 'security_detection',
+      event: detectionInfo.is_test ? 'test_detection' : 'security_detection',
+      is_test: detectionInfo.is_test || false,
       timestamp: new Date().toISOString(),
       camera_id: 'mobile_cam_001',
       location: 'Mobile Device',
@@ -675,7 +728,8 @@ const Notifier = {
       metadata: {
         user_agent: navigator.userAgent,
         screen_resolution: `${screen.width}x${screen.height}`,
-        timestamp_local: new Date().toLocaleString('pt-BR')
+        timestamp_local: new Date().toLocaleString('pt-BR'),
+        test_mode: detectionInfo.is_test || false
       }
     };
 
@@ -769,8 +823,7 @@ async function loop() {
           captureEnabled: captureEnabled
         };
         
-        state.faceAlertSent = true; // Marca como enviado para não reagendar
-        Utils.showToast(`📸 Captura agendada em ${delayFrames} frames`, 'info');
+        state.faceAlertSent = true; // Marca como enviado para não reagendar 
       }
     }
     
@@ -961,28 +1014,55 @@ const App = {
       return;
     }
 
-    try {
-      const url = els.webhookUrl.value.trim();
-      let imageBase64 = null;
+    if (!Camera.isActive()) {
+      Utils.showToast('Câmera não ativa - Teste básico será enviado', 'warning');
       
-      if (Camera.isActive()) {
-        imageBase64 = ImageCapture.captureCleanFrame(els.video);
+      try {
+        const url = els.webhookUrl.value.trim();
+        const payload = { 
+          event: 'test_ping', 
+          timestamp: new Date().toISOString(),
+          camera_id: 'mobile_cam_001',
+          message: 'Teste de conectividade (sem câmera)',
+          image_base64: null
+        };
+        
+        const resp = await Notifier.send(url, payload);
+        const timestamp = Utils.formatTime(Date.now());
+        els.lastSend.textContent = `${timestamp} (test:${resp.status})`;
+        
+        Utils.showToast(`Teste OK (${resp.status})`, 'success');
+        
+      } catch (e) {
+        Utils.showToast(`Teste Falhou: ${e.message}`, 'error');
+      }
+      return;
+    }
+
+    try {
+      // Usar exatamente a mesma lógica da função capture()
+      if (!state.personModel || !state.faceModel) {
+        await Detector.loadAll();
       }
       
-      const payload = { 
-        event: 'test_ping', 
-        timestamp: new Date().toISOString(),
-        camera_id: 'mobile_cam_001',
-        message: 'Teste de conectividade',
-        image_base64: imageBase64
-      };
+      const { persons, faces } = await Detector.detectAll(els.video);
+      const personMinScore = parseFloat(els.confidence.value) || 0.6;
+      const faceMinScore = parseFloat(els.faceConfidence.value) || 0.7;
       
-      const resp = await Notifier.send(url, payload);
+      const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+      const imageBase64 = ImageCapture.captureCleanFrame(els.video);
+      
+      // Enviar usando o mesmo método que a captura, mas marcando como teste
+      const resp = await Notifier.sendSecurityAlert({
+        ...detectionInfo,
+        is_test: true // Adicionar flag de teste
+      }, imageBase64);
+      
       const timestamp = Utils.formatTime(Date.now());
-      const imageInfo = imageBase64 ? '+img' : '';
-      els.lastSend.textContent = `${timestamp} (test:${resp.status})${imageInfo}`;
+      els.lastSend.textContent = `${timestamp} (test:${resp.status})`;
       
-      Utils.showToast(`Teste OK (${resp.status})`, 'success');
+      const detectionText = `P:${detectionInfo.persons_count}, F:${detectionInfo.faces_count}`;
+      Utils.showToast(`Teste OK (${resp.status}) - ${detectionText}`, 'success');
       
     } catch (e) {
       Utils.showToast(`Teste Falhou: ${e.message}`, 'error');
@@ -1027,6 +1107,16 @@ const UI = {
 
     els.overlay.addEventListener('click', () => {
       this.closeMenu();
+    });
+
+    // Theme controls
+    els.themeToggle.addEventListener('click', () => {
+      Theme.toggle();
+    });
+
+    els.darkModeToggle.addEventListener('change', (e) => {
+      const newTheme = e.target.checked ? 'dark' : 'light';
+      Theme.setTheme(newTheme);
     });
 
     // Main controls
@@ -1109,6 +1199,7 @@ const UI = {
 document.addEventListener('DOMContentLoaded', () => {
   Settings.init();
   UI.init();
+  Theme.init();
   
   // Initialize status
   Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
