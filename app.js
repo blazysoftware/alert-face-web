@@ -401,6 +401,55 @@ const Utils = {
     };
   },
 
+  // Modal para solicitar telefone válido
+  async showPhoneModal() {
+    const { value: phone } = await Swal.fire({
+      title: 'Telefone Necessário',
+      input: 'tel',
+      inputLabel: 'Digite seu telefone que receberá as notificações',
+      inputPlaceholder: '+55 62 91234 5678',
+      inputAttributes: {
+        autocapitalize: 'off',
+        maxlength: 17
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#8b5cf6',
+      cancelButtonColor: '#6b7280',
+      inputValidator: (value) => {
+        const normalized = Phone.normalize(value);
+        if (!Phone.isValidBrazil(normalized)) {
+          return 'Por favor, digite um telefone válido no formato brasileiro';
+        }
+      },
+      customClass: {
+        popup: 'phone-modal',
+        title: 'phone-modal-title',
+        htmlContainer: 'phone-modal-content',
+        input: 'phone-modal-input'
+      }
+    });
+
+    if (phone) {
+      const normalized = Phone.normalize(phone);
+      const formatted = Phone.formatDisplay(normalized);
+      
+      // Salvar o telefone
+      Utils.saveUserPreference('phone', normalized);
+      if (els.phoneInput) {
+        els.phoneInput.value = formatted;
+      }
+      
+      Utils.showToast(`✅ Telefone salvo: ${formatted}`, 'success');
+      Utils.updateButtonStates();
+      
+      return true;
+    }
+    
+    return false;
+  },
+
   updateStatus(element, status, text) {
     element.textContent = text;
     element.setAttribute('data-status', status);
@@ -863,7 +912,13 @@ const AutoStart = {
     const phoneToCheck = inputPhoneRaw || savedPhone;
     
     if (!Phone.isValidBrazil(phoneToCheck)) {
-      Utils.showToast('Informe um telefone válido antes de ativar a câmera automaticamente', 'warning');
+      // Mostrar modal para solicitar telefone
+      Utils.showPhoneModal().then((success) => {
+        if (success) {
+          // Telefone válido inserido, iniciar countdown
+          this.startCountdown();
+        }
+      });
       return; // Não inicia o countdown
     }
 
@@ -1548,9 +1603,13 @@ const App = {
     const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
     const phoneToCheck = inputPhoneRaw || savedPhone;
     if (!Phone.isValidBrazil(phoneToCheck)) {
-      Utils.showToast('Informe um telefone válido no formato +55 62 98116 66035 antes de ativar a câmera', 'warning');
-      // keep camera disabled
-      return;
+      // Mostrar modal para solicitar telefone
+      const success = await Utils.showPhoneModal();
+      if (!success) {
+        return; // Usuário cancelou
+      }
+      // Tentar novamente com o novo telefone
+      return await this.start();
     }
     // ensure saved
     if (Phone.isValidBrazil(phoneToCheck)) Utils.saveUserPreference('phone', Phone.normalize(phoneToCheck));
@@ -1652,8 +1711,12 @@ const App = {
     const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
     const phoneToCheck = inputPhoneRaw || savedPhone;
     if (!Phone.isValidBrazil(phoneToCheck)) {
-      Utils.showToast('Informe um telefone válido antes de capturar', 'warning');
-      return;
+      const success = await Utils.showPhoneModal();
+      if (!success) {
+        return; // Usuário cancelou
+      }
+      // Tentar novamente com o novo telefone
+      return await this.capture();
     }
 
     // Validar webhook URL
@@ -1691,8 +1754,12 @@ const App = {
     const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
     const phoneToCheck = inputPhoneRaw || savedPhone;
     if (!Phone.isValidBrazil(phoneToCheck)) {
-      Utils.showToast('Informe um telefone válido antes de testar', 'warning');
-      return;
+      const success = await Utils.showPhoneModal();
+      if (!success) {
+        return; // Usuário cancelou
+      }
+      // Tentar novamente com o novo telefone
+      return await this.testWebhook();
     }
 
     // Validar webhook URL
@@ -1846,16 +1913,45 @@ const UI = {
       App.testWebhook();
     });
 
-    // Cache actions
+    // Cache actions - Limpar TUDO
     els.clearCache.addEventListener('click', async () => {
       if (state.running) {
         Utils.showToast('Pare o sistema primeiro', 'warning');
         return;
       }
       
-      if (confirm('Limpar cache dos modelos IA?\n\nSerão baixados novamente na próxima inicialização.')) {
-        await Detector.clearCache();
-        Utils.showToast('Cache limpo', 'success');
+      // Modal de confirmação mais detalhado
+      const result = await Swal.fire({
+        title: '🗑️ Limpar Tudo?',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Esta ação irá limpar:</strong></p>
+            <ul style="margin: 12px 0;">
+              <li>🧠 Cache dos modelos IA</li>
+              <li>📞 Telefone salvo</li>
+              <li>🎨 Configurações de tema</li>
+              <li>⚙️ Todas as preferências</li>
+              <li>📋 Histórico de detecções</li>
+              <li>🔔 Notificações ativas</li>
+              <li>📷 Permissões da câmera</li>
+            </ul>
+            <p><strong>⚠️ Esta ação não pode ser desfeita!</strong></p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, Limpar Tudo',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+        customClass: {
+          popup: 'clear-cache-modal'
+        }
+      });
+
+      if (result.isConfirmed) {
+        await UI.clearEverything();
       }
     });
 
@@ -1919,6 +2015,111 @@ const UI = {
     els.sideMenu.classList.remove('open');
     els.menuOverlay.classList.remove('show');
     els.menuBtn.classList.remove('active');
+  },
+
+  async clearEverything() {
+    try {
+      Utils.showToast('🧹 Iniciando limpeza completa...', 'info');
+      
+      // 1. Limpar cache dos modelos IA
+      await Detector.clearCache();
+      
+      // 2. Limpar todas as preferências do usuário
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('aiDetection_') || key.startsWith('aiModel_') || key === 'theme') {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // 3. Limpar notificações ativas
+      Utils.clearAllToasts();
+      
+      // 4. Reset do estado da aplicação
+      state.stream = null;
+      state.personModel = null;
+      state.faceModel = null;
+      state.running = false;
+      state.rafId = null;
+      state.lastPersonPresent = false;
+      state.lastFacePresent = false;
+      state.lastSendAt = 0;
+      state.detectionHistory = [];
+      state.currentDetections = { persons: 0, faces: 0, total: 0 };
+      state.systemStartTime = null;
+      state.lastLogMessages = new Set();
+      state.faceAlertSent = false;
+      state.autoStartTimer = null;
+      state.cameraPermissionGranted = false;
+      state.pendingCapture = null;
+      state.currentFrameCount = 0;
+      state.deviceInfo = null;
+      state.toastQueue = [];
+      state.lastToastMessage = null;
+      
+      // 5. Reset da interface
+      if (els.phoneInput) els.phoneInput.value = '';
+      if (els.webhookUrl) els.webhookUrl.value = 'https://workflow.blazysoftware.com.br/webhook/pego-no-pulo';
+      if (els.confidence) els.confidence.value = '0.6';
+      if (els.faceConfidence) els.faceConfidence.value = '0.7';
+      if (els.cooldown) els.cooldown.value = '5';
+      if (els.performance) els.performance.value = '5';
+      if (els.captureDelay) els.captureDelay.value = '3';
+      if (els.drawBoxes) els.drawBoxes.checked = true;
+      if (els.captureEnabled) els.captureEnabled.checked = true;
+      if (els.darkModeToggle) els.darkModeToggle.checked = false;
+      
+      // 6. Reset dos status
+      Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
+      Utils.updateStatus(els.modelStatus, 'offline', 'Não carregado');
+      Utils.updateStatus(els.faceModelStatus, 'offline', 'Não carregado');
+      els.lastSend.textContent = 'Nunca';
+      els.personCount.textContent = '0';
+      els.faceCount.textContent = '0';
+      els.totalDetections.textContent = '0';
+      
+      // 7. Reset do tema para padrão
+      Theme.setTheme('light');
+      
+      // 8. Reset dos displays dos ranges
+      Settings.updateRangeDisplays();
+      Settings.updateWebhookStatus();
+      
+      // 9. Parar câmera se estiver ativa
+      Camera.stop();
+      
+      // 10. Reset dos overlays
+      if (els.autoStartOverlay) els.autoStartOverlay.style.display = 'none';
+      if (els.cameraPermission) els.cameraPermission.style.display = 'none';
+      if (els.loadingOverlay) els.loadingOverlay.style.display = 'none';
+      
+      // Limpar help overlay se existir
+      const helpOverlay = document.getElementById('permissionHelp');
+      if (helpOverlay) {
+        helpOverlay.remove();
+      }
+      
+      Utils.showToast('✅ Limpeza completa realizada!', 'success');
+      Utils.showToast('🔄 Recarregue a página para reiniciar', 'info', 5000);
+      
+      // Opcional: Recarregar automaticamente após 3 segundos
+      setTimeout(() => {
+        Swal.fire({
+          title: 'Limpeza Concluída!',
+          text: 'A página será recarregada para aplicar todas as mudanças.',
+          icon: 'success',
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false
+        }).then(() => {
+          location.reload();
+        });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Erro durante limpeza:', error);
+      Utils.showToast(`❌ Erro na limpeza: ${error.message}`, 'error');
+    }
   }
 };
 

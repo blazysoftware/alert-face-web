@@ -1060,66 +1060,69 @@ input:checked + .slider:before {
   }
   
   .main {
-    padding: 12px;
-    margin-top: 56px;
+    padding: 8px;
+    margin-top: 52px;
   }
   
   .video-container {
-    height: 45vh;
-    min-height: 280px;
-    max-height: 400px;
-    border-radius: 16px;
-    margin-bottom: 16px;
+    height: 35vh; /* Reduzido de 45vh para 35vh */
+    min-height: 240px; /* Reduzido de 280px para 240px */
+    max-height: 320px; /* Reduzido de 400px para 320px */
+    border-radius: 12px;
+    margin-bottom: 12px;
   }
   
-  /* Otimizar controles para toque */
+  /* Otimizar controles para toque - layout vertical quando necessário */
   .controls {
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    margin-top: 8px;
+    flex-direction: row;
   }
   
   .control-btn {
-    height: 52px;
-    border-radius: 26px;
-    font-size: 16px;
+    height: 48px; /* Reduzido de 52px para 48px */
+    border-radius: 24px;
+    font-size: 15px;
     font-weight: 600;
-    /* Melhor área de toque */
-    min-width: 120px;
+    padding: 0 16px;
+    min-width: 100px; /* Reduzido de 120px para 100px */
   }
   
-  /* Stats em linha para economizar espaço vertical */
+  /* Stats mais compactos em 3 colunas */
   .stats-section {
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 6px; /* Reduzido de 8px para 6px */
+    margin-bottom: 12px; /* Reduzido de 16px para 12px */
   }
   
   .stat-card {
-    padding: 12px 8px;
-    border-radius: 12px;
+    padding: 8px 6px; /* Reduzido de 12px 8px para 8px 6px */
+    border-radius: 8px;
   }
   
   .stat-value {
-    font-size: 20px;
+    font-size: 18px; /* Reduzido de 20px para 18px */
+    line-height: 1.1;
   }
   
   .stat-label {
-    font-size: 11px;
+    font-size: 10px; /* Reduzido de 11px para 10px */
+    margin-top: 2px;
   }
   
-  /* Quick settings compactos */
+  /* Quick settings mais compactos */
   .quick-settings {
-    padding: 12px;
-    border-radius: 12px;
-    margin-bottom: 16px;
+    padding: 10px; /* Reduzido de 12px para 10px */
+    border-radius: 8px;
+    margin-bottom: 12px; /* Reduzido de 16px para 12px */
   }
   
   .setting-item {
-    padding: 10px 0;
+    padding: 6px 0; /* Reduzido de 10px para 6px */
   }
   
   .setting-label {
-    font-size: 15px;
+    font-size: 14px; /* Reduzido de 15px para 14px */
   }
   
   /* Menu lateral full-width em mobile */
@@ -1130,28 +1133,89 @@ input:checked + .slider:before {
   
   /* Header mais compacto */
   .header {
-    height: 52px;
+    height: 48px; /* Reduzido de 52px para 48px */
   }
   
   .header-content {
-    padding: 0 12px;
+    padding: 0 8px; /* Reduzido de 12px para 8px */
   }
   
   .logo {
-    font-size: 16px;
+    font-size: 15px; /* Reduzido de 16px para 15px */
   }
   
   /* Toast notifications ajustadas */
   .toast-container {
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
+    bottom: 8px; /* Reduzido de 12px para 8px */
+    left: 8px;
+    right: 8px;
   }
   
   .toast {
-    padding: 14px 16px;
-    font-size: 15px;
-    border-radius: 12px;
+    padding: 10px 12px; /* Reduzido de 14px 16px para 10px 12px */
+    font-size: 13px; /* Reduzido de 15px para 13px */
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+}
+
+/* Altura muito baixa - Dispositivos em landscape ou muito compactos */
+@media (max-height: 600px) and (orientation: portrait) {
+  .header {
+    height: 42px;
+    min-height: 42px;
+  }
+  
+  .video-container {
+    height: 28vh;
+    min-height: 200px;
+  }
+  
+  .controls {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+  
+  .control-btn {
+    height: 38px;
+    font-size: 0.8rem;
+  }
+  
+  .stats {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+  
+  .main {
+    padding: 6px 12px;
+  }
+  
+  .toast {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+/* Altura extremamente baixa */
+@media (max-height: 500px) {
+  .header {
+    height: 36px;
+    min-height: 36px;
+  }
+  
+  .video-container {
+    height: 25vh;
+    min-height: 180px;
+  }
+  
+  .control-btn {
+    height: 34px;
+    font-size: 0.75rem;
+    padding: 0 8px;
+  }
+  
+  .main {
+    padding: 4px 8px;
   }
 }
 
@@ -1173,26 +1237,43 @@ input:checked + .slider:before {
   }
 }
 
-/* Small Mobile Devices */
-@media (max-width: 360px) {
+/* Ultra Small Mobile Devices - Maximum Vertical Space */
+@media (max-width: 360px) and (max-height: 700px) {
   .main {
+    padding: 4px 8px;
+  }
+  
+  .header {
     padding: 8px;
+    min-height: 40px;
   }
   
   .video-container {
-    height: 40vh;
-    min-height: 250px;
-    border-radius: 12px;
+    height: 30vh;
+    min-height: 220px;
+    border-radius: 8px;
   }
   
   .controls {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    padding: 8px;
   }
   
   .control-btn {
     width: 100%;
-    height: 48px;
+    height: 42px;
+    font-size: 0.85rem;
+  }
+  
+  .stats {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+  
+  .toast {
+    font-size: 0.8rem;
+    padding: 6px 12px;
   }
   
   .stats-section {
@@ -1342,6 +1423,81 @@ input:checked + .slider:before {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* SweetAlert2 Custom Styles */
+.phone-modal {
+  border-radius: 16px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.phone-modal-title {
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+
+.phone-modal-content {
+  color: var(--on-surface) !important;
+  line-height: 1.5 !important;
+}
+
+.phone-modal-input {
+  border: 2px solid var(--outline) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  font-size: 16px !important;
+  font-family: 'Inter', monospace !important;
+  text-align: center !important;
+}
+
+.phone-modal-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+}
+
+/* Dark theme support for SweetAlert */
+[data-theme="dark"] .swal2-popup {
+  background: var(--surface-elevated) !important;
+  color: var(--on-surface) !important;
+}
+
+[data-theme="dark"] .swal2-title {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .swal2-html-container {
+  color: var(--on-surface) !important;
+}
+
+[data-theme="dark"] .swal2-input {
+  background: var(--surface) !important;
+  color: var(--on-surface) !important;
+  border: 2px solid var(--outline) !important;
+}
+
+[data-theme="dark"] .swal2-input:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Clear Cache Modal */
+.clear-cache-modal {
+  border-radius: 16px !important;
+}
+
+.clear-cache-modal ul {
+  text-align: left !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+}
+
+.clear-cache-modal li {
+  margin: 6px 0 !important;
+  padding: 4px 0 !important;
+}
+
+.clear-cache-modal .swal2-html-container {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
 }
 
 /* Desktop and Tablet Styles */
