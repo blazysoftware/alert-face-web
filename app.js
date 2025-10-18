@@ -1426,56 +1426,10 @@ const UI = {
 };
 
 // Initialize App
-// Git Version Management
-const GitVersion = {
-  async init() {
-    try {
-      // Primeiro tenta buscar do arquivo local version.json
-      const localResponse = await fetch('./version.json');
-      if (localResponse.ok) {
-        const localData = await localResponse.json();
-        const date = new Date(localData.date).toLocaleDateString('pt-BR');
-        const version = `${localData.shortCommit} (${date})`;
-        this.updateVersionDisplay(version);
-        return;
-      }
-    } catch (error) {
-      console.log('Arquivo version.json não encontrado, tentando GitHub API...');
-    }
-
-    try {
-      // Fallback para GitHub API
-      const response = await fetch('https://api.github.com/repos/blazysoftware/alert-face-web/commits/main');
-      const data = await response.json();
-      
-      if (data.sha) {
-        const shortSha = data.sha.substring(0, 7);
-        const date = new Date(data.commit.committer.date).toLocaleDateString('pt-BR');
-        const version = `${shortSha} (${date})`;
-        this.updateVersionDisplay(version);
-      } else {
-        this.updateVersionDisplay('dev-local');
-      }
-    } catch (error) {
-      console.log('Não foi possível obter versão:', error);
-      this.updateVersionDisplay('dev-local');
-    }
-  },
-
-  updateVersionDisplay(version) {
-    const versionElement = document.getElementById('gitVersion');
-    if (versionElement) {
-      versionElement.textContent = version;
-    }
-  }
-};
-
-// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   Settings.init();
   UI.init();
   Theme.init();
-  GitVersion.init();
   
   // Initialize status
   Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
