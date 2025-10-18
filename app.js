@@ -70,6 +70,8 @@ const els = {
   // Actions
   clearCache: document.getElementById('clearCache'),
   modelInfo: document.getElementById('modelInfo'),
+  clearToasts: document.getElementById('clearToasts'),
+  testToasts: document.getElementById('testToasts'),
   
   // Toast
   toastContainer: document.getElementById('toastContainer')
@@ -95,7 +97,14 @@ const state = {
   
   // Sistema de delay para frente
   pendingCapture: null, // {frameCount: X, detectionInfo: {}, scheduledAt: timestamp}
-  currentFrameCount: 0
+  currentFrameCount: 0,
+  
+  // Mobile device info
+  deviceInfo: null, // { isMobile, isIOS, isAndroid }
+  
+  // Toast notification system
+  toastQueue: [], // Fila de toasts ativos
+  lastToastMessage: null // Última mensagem para evitar duplicatas
 };
 
 // Theme Management
@@ -144,19 +153,252 @@ const Theme = {
   }
 };
 
+// Mobile Orientation Manager
+const MobileManager = {
+  init() {
+    this.detectDeviceType();
+    this.setupOrientationHandling();
+    this.optimizeForMobile();
+  },
+
+  detectDeviceType() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    document.body.classList.toggle('mobile-device', isMobile);
+    document.body.classList.toggle('ios-device', isIOS);
+    document.body.classList.toggle('android-device', isAndroid);
+    
+    // Salvar informações no estado
+    state.deviceInfo = { isMobile, isIOS, isAndroid };
+  },
+
+  setupOrientationHandling() {
+    // Listener para mudanças de orientação
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => {
+        this.handleOrientationChange();
+      }, 100);
+    });
+
+    // Listener para redimensionamento
+    window.addEventListener('resize', () => {
+      this.handleResize();
+    });
+
+    // Configuração inicial
+    this.handleOrientationChange();
+  },
+
+  handleOrientationChange() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const orientation = screen.orientation?.type || (isPortrait ? 'portrait-primary' : 'landscape-primary');
+    
+    document.body.classList.toggle('portrait', isPortrait);
+    document.body.classList.toggle('landscape', !isPortrait);
+    
+    // Ajustar câmera se ativa
+    if (Camera.isActive()) {
+      setTimeout(() => {
+        this.adjustVideoForOrientation();
+      }, 300);
+    }
+
+    // Toast informativo para mudança de orientação
+    if (state.deviceInfo?.isMobile) {
+      const message = isPortrait ? '📱 Modo Vertical' : '📱 Modo Horizontal';
+      Utils.showToast(message, 'info');
+    }
+  },
+
+  handleResize() {
+    // Redimensionar canvas de detecção
+    if (els.detectionOverlay && Camera.isActive()) {
+      setTimeout(() => {
+        const canvas = els.detectionOverlay;
+        if (canvas && els.video) {
+          canvas.width = els.video.clientWidth;
+          canvas.height = els.video.clientHeight;
+        }
+      }, 100);
+    }
+  },
+
+  adjustVideoForOrientation() {
+    if (!els.video || !Camera.isActive()) return;
+    
+    const isPortrait = window.innerHeight > window.innerWidth;
+    
+    // Ajustar configurações da câmera para orientação
+    const videoContainer = document.querySelector('.video-container');
+    if (videoContainer) {
+      if (isPortrait) {
+        videoContainer.style.aspectRatio = '16/9';
+      } else {
+        videoContainer.style.aspectRatio = '16/10';
+      }
+    }
+  },
+
+  optimizeForMobile() {
+    if (!state.deviceInfo?.isMobile) return;
+
+    // Prevenir zoom em inputs
+    const inputs = document.querySelectorAll('input[type="tel"], input[type="url"], input[type="text"]');
+    inputs.forEach(input => {
+      input.style.fontSize = '16px'; // Previne zoom no iOS
+    });
+
+    // Otimizar performance em mobile
+    if (els.performance) {
+      // Sugerir FPS mais baixo em mobile
+      const currentFPS = parseInt(els.performance.value) || 5;
+      if (currentFPS > 10) {
+        els.performance.value = '5';
+        Utils.saveUserPreference('performance', 5);
+        Utils.showToast('⚡ FPS otimizado para mobile', 'info');
+      }
+    }
+
+    // Adicionar classe CSS para otimizações específicas
+    document.body.classList.add('mobile-optimized');
+  },
+
+  // Função para forçar orientação portrait (apenas sugestão visual)
+  suggestPortraitMode() {
+    if (window.innerWidth > window.innerHeight) {
+      Utils.showToast('📱 Para melhor experiência, use o modo vertical', 'warning');
+    }
+  }
+};
+
 // Utility Functions
 const Utils = {
-  showToast(message, type = 'info') {
+  showToast(message, type = 'info', duration = 3000) {
+    // Verificar se a última mensagem é igual (evitar duplicatas)
+    if (state.lastToastMessage === message) {
+      console.log('Toast duplicado ignorado:', message);
+      return;
+    }
+    
+    // Atualizar última mensagem
+    state.lastToastMessage = message;
+    
+    // Limpar mensagem após um tempo para permitir nova exibição
+    setTimeout(() => {
+      if (state.lastToastMessage === message) {
+        state.lastToastMessage = null;
+      }
+    }, 1000);
+    
+    // Verificar limite máximo de toasts (6)
+    if (state.toastQueue.length >= 6) {
+      // Remover toasts mais antigos
+      const oldestToasts = state.toastQueue.splice(0, state.toastQueue.length - 5);
+      oldestToasts.forEach(toast => {
+        if (toast.element && toast.element.parentNode) {
+          toast.element.classList.remove('show');
+          setTimeout(() => {
+            if (toast.element.parentNode) {
+              toast.element.remove();
+            }
+          }, 300);
+        }
+      });
+    }
+    
+    // Criar novo toast
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
-    els.toastContainer.appendChild(toast);
+    toast.innerHTML = `
+      <span class="toast-message">${message}</span>
+      <span class="toast-counter">${state.toastQueue.length + 1}</span>
+    `;
     
+    // Criar objeto de controle do toast
+    const toastControl = {
+      element: toast,
+      message: message,
+      type: type,
+      createdAt: Date.now(),
+      timeoutId: null
+    };
+    
+    // Adicionar à fila
+    state.toastQueue.push(toastControl);
+    
+    // Adicionar ao DOM
+    if (els.toastContainer) {
+      els.toastContainer.appendChild(toast);
+    } else {
+      console.warn('Toast container não encontrado');
+      return;
+    }
+    
+    // Animação de entrada
     setTimeout(() => toast.classList.add('show'), 100);
+    
+    // Programar remoção
+    toastControl.timeoutId = setTimeout(() => {
+      this.removeToast(toastControl);
+    }, duration);
+    
+    // Adicionar listener para remoção manual (clique)
+    toast.addEventListener('click', () => {
+      this.removeToast(toastControl);
+    });
+    
+    console.log(`Toast criado: "${message}" (${type}), fila: ${state.toastQueue.length}`);
+  },
+  
+  removeToast(toastControl) {
+    if (!toastControl || !toastControl.element) return;
+    
+    // Limpar timeout se existir
+    if (toastControl.timeoutId) {
+      clearTimeout(toastControl.timeoutId);
+    }
+    
+    // Remover da fila
+    const index = state.toastQueue.indexOf(toastControl);
+    if (index > -1) {
+      state.toastQueue.splice(index, 1);
+    }
+    
+    // Animação de saída
+    toastControl.element.classList.remove('show');
     setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
+      if (toastControl.element && toastControl.element.parentNode) {
+        toastControl.element.remove();
+      }
+    }, 300);
+    
+    console.log(`Toast removido: "${toastControl.message}", fila: ${state.toastQueue.length}`);
+  },
+  
+  clearAllToasts() {
+    // Limpar todos os toasts
+    const count = state.toastQueue.length;
+    state.toastQueue.forEach(toastControl => {
+      this.removeToast(toastControl);
+    });
+    state.toastQueue = [];
+    state.lastToastMessage = null;
+    console.log(`Todos os toasts foram limpos (${count} notificações)`);
+  },
+  
+  // Função para debug das notificações
+  getToastInfo() {
+    return {
+      queueLength: state.toastQueue.length,
+      lastMessage: state.lastToastMessage,
+      queue: state.toastQueue.map(t => ({
+        message: t.message,
+        type: t.type,
+        age: Date.now() - t.createdAt
+      }))
+    };
   },
 
   updateStatus(element, status, text) {
@@ -248,24 +490,20 @@ const Phone = {
     return `+${country} ${ddd} ${part1} ${part2}`.trim();
   },
 
-  // phoneWhatsapp: remove the 5th digit if number part starts with 9
+  // phoneWhatsapp: remove "9" se existir
   phoneWhatsapp(digitsOnly) {
     if (!digitsOnly) return '';
-    // digitsOnly should start with 55
+    
+    // Garantir que começa com 55
     let s = digitsOnly;
     if (!s.startsWith('55')) s = '55' + s;
-    // country(2) + ddd(2) + rest
-    const country = s.slice(0,2); // 55
-    const ddd = s.slice(2,4);      // 62
-    let rest = s.slice(4);         // 981666035
     
-    // If rest starts with '9' and has 9 digits, remove the 5th digit of the mobile number
-    // Example: 981666035 -> 98166035 (remove the '6' at position 4)
-    if (rest.length === 9 && rest[0] === '9') {
-      // Remove the 5th digit (index 4) of the mobile number
-      rest = rest.slice(0,4) + rest.slice(5);
+    // Se contém "9", remove a primeira ocorrência
+    if (s.includes('9')) {
+      s = s.replace('9', '');
     }
-    return `${country}${ddd}${rest}`;
+    
+    return s;
   },
 
   // Apply mask in real-time: +55 62 98116 66035
@@ -510,14 +748,111 @@ const Settings = {
   }
 };
 
+// Permission Manager - Sistema robusto para HTTPS
+const PermissionManager = {
+  async checkCameraPermission() {
+    try {
+      // Verificar se a API de permissões está disponível
+      if ('permissions' in navigator) {
+        const result = await navigator.permissions.query({ name: 'camera' });
+        console.log('Camera permission status:', result.state);
+        return result.state; // 'granted', 'denied', 'prompt'
+      }
+      
+      // Fallback para browsers mais antigos
+      return 'unknown';
+    } catch (error) {
+      console.warn('Permissions API not available:', error);
+      return 'unknown';
+    }
+  },
+
+  async requestCameraAccess() {
+    try {
+      // Tentar acessar a câmera diretamente
+      const constraints = {
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 320 },
+          height: { ideal: 240 }
+        }
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Se chegou aqui, a permissão foi concedida
+      stream.getTracks().forEach(track => track.stop()); // Parar o stream de teste
+      return true;
+    } catch (error) {
+      console.error('Camera access denied:', error);
+      return false;
+    }
+  },
+
+  async checkAndSetPermissionStatus() {
+    const permission = await this.checkCameraPermission();
+    
+    switch (permission) {
+      case 'granted':
+        state.cameraPermissionGranted = true;
+        Utils.saveUserPreference('cameraPermissionGranted', true);
+        return 'granted';
+        
+      case 'denied':
+        state.cameraPermissionGranted = false;
+        Utils.saveUserPreference('cameraPermissionGranted', false);
+        return 'denied';
+        
+      case 'prompt':
+      case 'unknown':
+      default:
+        // Verificar se há permissão salva anteriormente
+        const savedPermission = Utils.getUserPreference('cameraPermissionGranted', false);
+        state.cameraPermissionGranted = savedPermission;
+        return savedPermission ? 'granted' : 'prompt';
+    }
+  },
+
+  isHTTPS() {
+    return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  },
+
+  showHTTPSWarning() {
+    Utils.showToast('⚠️ Para melhor funcionamento da câmera, use HTTPS', 'warning', 5000);
+  }
+};
+
 // Auto Start System
 const AutoStart = {
-  init() {
-    // Check if user previously granted permission
-    if (state.cameraPermissionGranted) {
-      this.startCountdown();
-    } else {
-      this.showCameraPermission();
+  async init() {
+    // Verificar se está em HTTPS
+    if (!PermissionManager.isHTTPS()) {
+      PermissionManager.showHTTPSWarning();
+    }
+
+    // Verificar status atual da permissão
+    const permissionStatus = await PermissionManager.checkAndSetPermissionStatus();
+    
+    console.log('Permission status:', permissionStatus);
+    
+    switch (permissionStatus) {
+      case 'granted':
+        // Permissão já concedida, iniciar countdown automaticamente
+        Utils.showToast('📷 Câmera autorizada', 'success');
+        setTimeout(() => {
+          this.startCountdown();
+        }, 1000);
+        break;
+        
+      case 'denied':
+        // Permissão negada, mostrar instruções
+        this.showPermissionDeniedHelp();
+        break;
+        
+      default:
+        // Primeira vez ou status desconhecido, mostrar tela de permissão
+        this.showCameraPermission();
+        break;
     }
   },
 
@@ -571,13 +906,70 @@ const AutoStart = {
   },
 
   async grantPermission() {
+    // Tentar acessar a câmera primeiro
+    const hasAccess = await PermissionManager.requestCameraAccess();
+    
+    if (!hasAccess) {
+      Utils.showToast('❌ Acesso à câmera negado', 'error');
+      this.showPermissionDeniedHelp();
+      return;
+    }
+
+    // Salvar permissão se o usuário escolheu lembrar
     const remember = els.rememberChoice.checked;
     if (remember) {
       Utils.saveUserPreference('cameraPermissionGranted', true);
       state.cameraPermissionGranted = true;
     }
+    
     this.hideCameraPermission();
+    Utils.showToast('✅ Câmera autorizada com sucesso!', 'success');
     await App.start();
+  },
+
+  showPermissionDeniedHelp() {
+    // Esconder outros overlays
+    this.hideCameraPermission();
+    els.autoStartOverlay.style.display = 'none';
+
+    // Criar overlay de ajuda
+    const helpOverlay = document.createElement('div');
+    helpOverlay.className = 'camera-permission';
+    helpOverlay.id = 'permissionHelp';
+    helpOverlay.innerHTML = `
+      <div class="permission-content">
+        <div class="permission-icon">🚫</div>
+        <h3>Câmera Bloqueada</h3>
+        <p>Para usar o sistema de detecção, você precisa autorizar o acesso à câmera.</p>
+        <div class="help-steps">
+          <p><strong>Como autorizar:</strong></p>
+          <ol>
+            <li>Clique no ícone de câmera 📷 na barra de endereços</li>
+            <li>Selecione "Permitir"</li>
+            <li>Recarregue a página</li>
+          </ol>
+          ${!PermissionManager.isHTTPS() ? '<p><strong>⚠️ Importante:</strong> Use HTTPS para melhor funcionamento</p>' : ''}
+        </div>
+        <div class="permission-actions">
+          <button class="btn-primary" id="retryPermission">Tentar Novamente</button>
+          <button class="btn-secondary" id="refreshPage">Recarregar Página</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(helpOverlay);
+
+    // Event listeners
+    document.getElementById('retryPermission').addEventListener('click', async () => {
+      document.body.removeChild(helpOverlay);
+      await this.init();
+    });
+
+    document.getElementById('refreshPage').addEventListener('click', () => {
+      location.reload();
+    });
+
+    Utils.showToast('🔒 Câmera bloqueada - Verifique as configurações', 'warning', 5000);
   }
 };
 
@@ -587,13 +979,28 @@ const Camera = {
     try {
       Utils.updateStatus(els.cameraStatus, 'loading', 'Conectando...');
       
-      const constraints = {
+      // Otimizar configurações para dispositivo
+      const isMobile = state.deviceInfo?.isMobile || false;
+      const isPortrait = window.innerHeight > window.innerWidth;
+      
+      let constraints = {
         video: { 
           facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+          width: { ideal: isMobile ? (isPortrait ? 480 : 640) : 640 },
+          height: { ideal: isMobile ? (isPortrait ? 640 : 480) : 480 }
         }
       };
+      
+      // Configurações específicas para mobile
+      if (isMobile) {
+        constraints.video = {
+          ...constraints.video,
+          frameRate: { ideal: 15, max: 30 },
+          // Priorizar qualidade vs performance
+          width: { ideal: isPortrait ? 360 : 640, max: isPortrait ? 480 : 720 },
+          height: { ideal: isPortrait ? 640 : 360, max: isPortrait ? 720 : 480 }
+        };
+      }
       
       state.stream = await navigator.mediaDevices.getUserMedia(constraints);
       videoEl.srcObject = state.stream;
@@ -603,6 +1010,14 @@ const Camera = {
           const videoWidth = videoEl.videoWidth;
           const videoHeight = videoEl.videoHeight;
           Utils.updateStatus(els.cameraStatus, 'online', 'Conectada');
+          
+          // Sugestão de orientação para mobile
+          if (state.deviceInfo?.isMobile && window.innerWidth > window.innerHeight && window.innerWidth < 800) {
+            setTimeout(() => {
+              MobileManager.suggestPortraitMode();
+            }, 1000);
+          }
+          
           Utils.showToast(`Câmera: ${videoWidth}x${videoHeight}`, 'success');
           resolve({ videoWidth, videoHeight });
         };
@@ -813,8 +1228,26 @@ const Rules = {
 // Drawing System
 const Drawer = {
   drawAll(persons, faces) {
-    const canvas = els.detectionOverlay;
-    const ctx = canvas.getContext('2d');
+    try {
+      console.log('Drawer.drawAll called with', persons.length, 'persons and', faces.length, 'faces');
+      
+      const canvas = els.detectionOverlay;
+      console.log('Canvas element:', canvas, 'Type:', typeof canvas);
+      
+      // Verificar se o canvas existe e é válido
+      if (!canvas) {
+        console.error('Canvas detectionOverlay não encontrado - elemento é null/undefined');
+        return;
+      }
+      
+      if (typeof canvas.getContext !== 'function') {
+        console.error('Canvas detectionOverlay não é um canvas válido - getContext não é uma função');
+        console.log('Canvas tagName:', canvas.tagName, 'NodeName:', canvas.nodeName);
+        return;
+      }
+      
+      console.log('Canvas validation passed, getting context...');
+      const ctx = canvas.getContext('2d');
     
     // Set canvas size to match video
     canvas.width = els.video.clientWidth;
@@ -864,10 +1297,23 @@ const Drawer = {
       ctx.fillStyle = 'white';
       ctx.fillText(label, x + 4, y - 6);
     });
+    
+    console.log('Drawing completed successfully');
+    } catch (error) {
+      console.error('Erro em Drawer.drawAll:', error);
+      Utils.showToast(`Erro no desenho: ${error.message}`, 'error');
+    }
   },
 
   clear() {
     const canvas = els.detectionOverlay;
+    
+    // Verificar se o canvas existe e é válido
+    if (!canvas || typeof canvas.getContext !== 'function') {
+      console.error('Canvas detectionOverlay não encontrado ou inválido');
+      return;
+    }
+    
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
@@ -877,6 +1323,13 @@ const Drawer = {
 const ImageCapture = {
   captureCleanFrame(videoEl) {
     const canvas = els.capture;
+    
+    // Verificar se o canvas existe e é válido
+    if (!canvas || typeof canvas.getContext !== 'function') {
+      console.error('Canvas capture não encontrado ou inválido');
+      return null;
+    }
+    
     const ctx = canvas.getContext('2d');
     
     canvas.width = videoEl.videoWidth;
@@ -1418,6 +1871,48 @@ const UI = {
             `Cache: localStorage\n` +
             `Versão: 1.0`);
     });
+
+    // Clear toasts action
+    els.clearToasts.addEventListener('click', () => {
+      const toastCount = state.toastQueue.length;
+      Utils.clearAllToasts();
+      Utils.showToast(`${toastCount} notificações removidas`, 'info');
+    });
+
+    // Test toasts action (para demonstrar o sistema)
+    els.testToasts.addEventListener('click', () => {
+      // Teste do sistema de telefone primeiro
+      const testPhone = '5562981666035';
+      const whatsappPhone = Phone.phoneWhatsapp(testPhone);
+      console.log('Teste telefone:');
+      console.log('Original:', testPhone);
+      console.log('WhatsApp:', whatsappPhone);
+      console.log('Esperado: 55628166035');
+      
+      Utils.showToast(`📞 Tel: ${testPhone} → WhatsApp: ${whatsappPhone}`, 'info', 4000);
+      
+      // Testes das notificações
+      const testMessages = [
+        { msg: 'Teste de notificação 1', type: 'info' },
+        { msg: 'Sistema funcionando corretamente ✅', type: 'success' },
+        { msg: 'Aviso importante para teste ⚠️', type: 'warning' },
+        { msg: 'Erro simulado para demonstração ❌', type: 'error' },
+        { msg: 'Câmera ativada com sucesso 📷', type: 'success' },
+        { msg: 'Esta é a mesma mensagem', type: 'info' },
+        { msg: 'Esta é a mesma mensagem', type: 'info' }, // Esta será ignorada (duplicata)
+        { msg: 'Notificação adicional', type: 'warning' },
+        { msg: 'Sistema de fila funcionando', type: 'success' },
+        { msg: 'Máximo 6 notificações', type: 'error' }
+      ];
+      
+      testMessages.forEach((test, index) => {
+        setTimeout(() => {
+          Utils.showToast(test.msg, test.type);
+        }, (index + 1) * 600);
+      });
+      
+      Utils.showToast('Teste iniciado - Telefone + Notificações', 'info');
+    });
   },
 
   closeMenu() {
@@ -1427,11 +1922,56 @@ const UI = {
   }
 };
 
+// DOM Validation
+const DOMUtils = {
+  validateEssentialElements() {
+    const essentialElements = [
+      'video', 'detectionOverlay', 'capture', 'toggleBtn', 
+      'captureBtn', 'menuBtn', 'sideMenu', 'toastContainer'
+    ];
+    
+    const missing = essentialElements.filter(id => !document.getElementById(id));
+    
+    if (missing.length > 0) {
+      console.error('Elementos DOM essenciais não encontrados:', missing);
+      Utils.showToast(`Erro: Elementos DOM ausentes: ${missing.join(', ')}`, 'error');
+      return false;
+    }
+    
+    // Verificar se canvas são válidos
+    const detectionCanvas = document.getElementById('detectionOverlay');
+    const captureCanvas = document.getElementById('capture');
+    
+    if (detectionCanvas && typeof detectionCanvas.getContext !== 'function') {
+      console.error('detectionOverlay não é um canvas válido');
+      return false;
+    }
+    
+    if (captureCanvas && typeof captureCanvas.getContext !== 'function') {
+      console.error('capture não é um canvas válido');
+      return false;
+    }
+    
+    return true;
+  }
+};
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, initializing app...');
+  
+  // Validar elementos essenciais primeiro
+  if (!DOMUtils.validateEssentialElements()) {
+    console.error('Falha na validação dos elementos DOM');
+    return;
+  }
+  
+  console.log('DOM validation passed, continuing initialization...');
+  
   Settings.init();
   UI.init();
   Theme.init();
+  MobileManager.init();
   
   // Initialize status
   Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
@@ -1440,6 +1980,31 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set initial button states
   Utils.updateButtonStates();
+  
+  // Configurar badge de segurança
+  const securityBadge = document.getElementById('securityBadge');
+  if (securityBadge) {
+    if (PermissionManager.isHTTPS()) {
+      securityBadge.className = 'security-badge secure';
+      securityBadge.textContent = '🔒';
+      securityBadge.title = 'Conexão segura (HTTPS)';
+    } else {
+      securityBadge.className = 'security-badge insecure';
+      securityBadge.textContent = '⚠️';
+      securityBadge.title = 'Conexão insegura (HTTP) - Use HTTPS para melhor funcionamento';
+    }
+  }
+
+  // Mostrar mensagens de inicialização
+  setTimeout(() => {
+    Utils.showToast('🚀 Aplicação carregada com sucesso!', 'success');
+    setTimeout(() => {
+      Utils.showToast('📱 Sistema otimizado para mobile', 'info');
+    }, 800);
+    setTimeout(() => {
+      Utils.showToast('💡 Clique nas notificações para fechá-las', 'info');
+    }, 1600);
+  }, 200);
   
   // Start auto-activation sequence
   setTimeout(() => {

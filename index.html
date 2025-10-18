@@ -2,7 +2,19 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Security and Performance -->
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  <!-- PWA Support -->
+  <meta name="theme-color" content="#8b5cf6">
+  <meta name="apple-mobile-web-app-title" content="AI Detection">
+  
   <title>AI Face Detection</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -17,7 +29,10 @@
   <!-- Header -->
   <header class="header">
     <div class="header-content">
-      <h1 class="logo">AI Detection</h1>
+      <h1 class="logo">
+        AI Detection
+        <span class="security-badge" id="securityBadge">🔒</span>
+      </h1>
       <div class="header-actions">
         <button class="menu-btn" id="menuBtn">
           <span></span>
@@ -218,6 +233,8 @@
         <h3>Ações</h3>
         <button class="btn-secondary full-width" id="clearCache">Limpar Cache</button>
         <button class="btn-secondary full-width" id="modelInfo">Info dos Modelos</button>
+        <button class="btn-secondary full-width" id="clearToasts">Limpar Notificações</button>
+        <button class="btn-secondary full-width" id="testToasts">Testar Notificações</button>
       </div>
     </div>
   </div>

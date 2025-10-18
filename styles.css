@@ -89,6 +89,25 @@ body {
   font-size: 18px;
   font-weight: 600;
   color: var(--on-background);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.security-badge {
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.security-badge.insecure {
+  opacity: 1;
+  filter: grayscale(1);
+}
+
+.security-badge.secure {
+  opacity: 0.8;
+  color: var(--success);
 }
 
 .header-actions {
@@ -272,6 +291,31 @@ body {
   font-size: 14px;
   color: var(--on-surface-variant);
   cursor: pointer;
+}
+
+/* Permission Help Overlay */
+.help-steps {
+  text-align: left;
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(var(--primary), 0.1);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+}
+
+.help-steps ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.help-steps li {
+  margin: 4px 0;
+  line-height: 1.4;
+}
+
+.permission-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
 }
 
 /* Loading Overlay */
@@ -703,6 +747,8 @@ input:checked + .slider:before {
   left: 16px;
   right: 16px;
   z-index: 1200;
+  pointer-events: none;
+  /* Permitir que toasts individuais recebam eventos */
 }
 
 .toast {
@@ -710,13 +756,21 @@ input:checked + .slider:before {
   color: var(--background);
   padding: 12px 16px;
   border-radius: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   transform: translateY(100px);
   opacity: 0;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 14px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 
               0 2px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  /* Máximo de 2 linhas de texto */
+  max-height: 48px;
+  line-height: 1.4;
+  word-wrap: break-word;
 }
 
 .toast.show {
@@ -725,22 +779,109 @@ input:checked + .slider:before {
 }
 
 .toast:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 
               0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
+.toast:active {
+  transform: translateY(0);
+  transition: transform 0.1s;
+}
+
+/* Estrutura interna do toast */
+.toast-message {
+  display: block;
+  padding-right: 30px;
+}
+
+.toast-counter {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+  border-radius: 10px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+/* Indicador visual de que é clicável */
+.toast::after {
+  content: '×';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  bottom: 4px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 14px;
+  font-weight: bold;
+  color: inherit;
+}
+
+.toast:hover::after {
+  opacity: 0.8;
+}
+
+.toast:hover .toast-counter {
+  opacity: 0.3;
+}
+
+/* Tipos de toast */
 .toast.success {
   background: var(--success);
+  border-left: 4px solid rgba(255, 255, 255, 0.3);
 }
 
 .toast.error {
   background: var(--error);
+  border-left: 4px solid rgba(255, 255, 255, 0.3);
 }
 
 .toast.warning {
   background: var(--warning);
   color: var(--on-background);
+  border-left: 4px solid rgba(0, 0, 0, 0.2);
+}
+
+.toast.info {
+  background: var(--primary);
+  color: white;
+  border-left: 4px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Animações de entrada escalonadas para múltiplos toasts */
+.toast:nth-last-child(1) { animation-delay: 0ms; }
+.toast:nth-last-child(2) { animation-delay: 50ms; }
+.toast:nth-last-child(3) { animation-delay: 100ms; }
+.toast:nth-last-child(4) { animation-delay: 150ms; }
+.toast:nth-last-child(5) { animation-delay: 200ms; }
+.toast:nth-last-child(6) { animation-delay: 250ms; }
+
+/* Fade mais sutil para toasts mais antigos */
+.toast:nth-last-child(4),
+.toast:nth-last-child(5),
+.toast:nth-last-child(6) {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+/* Compactação em mobile quando há muitos toasts */
+@media (max-height: 600px) {
+  .toast {
+    padding: 8px 12px;
+    font-size: 13px;
+    margin-bottom: 4px;
+    max-height: 36px;
+  }
 }
 
 /* Theme Transitions */
@@ -908,31 +1049,303 @@ input:checked + .slider:before {
   animation: pulse 0.2s ease-in-out;
 }
 
-/* Responsive */
-@media (max-width: 480px) {
-  .video-container {
-    height: 70vh;
-    min-height: 400px;
-    max-height: 500px;
-  }
+/* Mobile Optimizations */
 
+/* Portrait Orientation - Vertical Layout Optimization */
+@media screen and (orientation: portrait) and (max-width: 768px) {
+  body {
+    /* Prevenir zoom no foco de inputs */
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .main {
+    padding: 12px;
+    margin-top: 56px;
+  }
+  
+  .video-container {
+    height: 45vh;
+    min-height: 280px;
+    max-height: 400px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+  }
+  
+  /* Otimizar controles para toque */
+  .controls {
+    gap: 8px;
+    margin-top: 12px;
+  }
+  
+  .control-btn {
+    height: 52px;
+    border-radius: 26px;
+    font-size: 16px;
+    font-weight: 600;
+    /* Melhor área de toque */
+    min-width: 120px;
+  }
+  
+  /* Stats em linha para economizar espaço vertical */
+  .stats-section {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  
+  .stat-card {
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+  }
+  
+  /* Quick settings compactos */
+  .quick-settings {
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .setting-item {
+    padding: 10px 0;
+  }
+  
+  .setting-label {
+    font-size: 15px;
+  }
+  
+  /* Menu lateral full-width em mobile */
   .side-menu {
     width: 100vw;
     right: -100vw;
   }
+  
+  /* Header mais compacto */
+  .header {
+    height: 52px;
+  }
+  
+  .header-content {
+    padding: 0 12px;
+  }
+  
+  .logo {
+    font-size: 16px;
+  }
+  
+  /* Toast notifications ajustadas */
+  .toast-container {
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+  }
+  
+  .toast {
+    padding: 14px 16px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+}
 
+/* Landscape Orientation - Horizontal Layout */
+@media screen and (orientation: landscape) and (max-height: 600px) {
+  .video-container {
+    height: 65vh;
+    min-height: 200px;
+    max-height: 350px;
+  }
+  
+  .stats-section {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  
+  .main {
+    padding: 8px 16px;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 360px) {
+  .main {
+    padding: 8px;
+  }
+  
+  .video-container {
+    height: 40vh;
+    min-height: 250px;
+    border-radius: 12px;
+  }
+  
+  .controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .control-btn {
+    width: 100%;
+    height: 48px;
+  }
+  
   .stats-section {
     grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
+  
+  .stat-card {
+    padding: 10px 6px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+  }
+  
+  .header-content {
+    padding: 0 8px;
+  }
+}
 
-  .quick-settings {
-    flex-direction: column;
+/* Safe Area Adjustments for iPhone notch, etc. */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
+  
+  .header {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .main {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  
+  .toast-container {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+  }
+}
 
-  .header-actions {
-    gap: 4px;
+/* Touch and Interaction Improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Dispositivos touch */
+  .control-btn, .btn-primary, .btn-secondary {
+    min-height: 44px;
+    /* Recomendação Apple para área de toque */
   }
-}@media (min-width: 768px) {
+  
+  .toggle {
+    transform: scale(1.2);
+    /* Maior área de toque para switches */
+  }
+  
+  .menu-btn {
+    padding: 12px;
+    /* Maior área de toque */
+  }
+  
+  /* Remover hover effects em touch devices */
+  .control-btn:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .theme-toggle:hover,
+  .menu-btn:hover {
+    background: var(--primary);
+    transform: none;
+  }
+}
+
+/* Mobile Device Specific Classes */
+.mobile-device {
+  /* Prevenir seleção de texto em dispositivos móveis */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.mobile-device input,
+.mobile-device textarea {
+  /* Permitir seleção em inputs */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* iOS Specific Improvements */
+.ios-device {
+  /* Melhorar renderização em iOS */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ios-device .control-btn {
+  /* Botões mais iOS-like */
+  border-radius: 28px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Android Specific Improvements */
+.android-device .control-btn {
+  /* Material Design buttons */
+  border-radius: 24px;
+  font-weight: 500;
+  text-transform: none;
+}
+
+/* Portrait Mode Enhancements */
+.portrait .video-container {
+  /* Otimizar aspecto em portrait */
+  aspect-ratio: 16/9;
+}
+
+.landscape .video-container {
+  /* Otimizar aspecto em landscape */
+  aspect-ratio: 16/10;
+}
+
+/* Prevent zoom on focus (iOS) */
+.mobile-device input[type="tel"],
+.mobile-device input[type="url"],
+.mobile-device input[type="text"] {
+  font-size: 16px !important;
+  /* Previne zoom automático no iOS */
+}
+
+/* Loading states otimizadas para mobile */
+.mobile-device .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 2px;
+}
+
+.mobile-device .countdown {
+  font-size: 48px;
+  /* Menor em telas pequenas */
+}
+
+/* Accessibility improvements for mobile */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-device * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Desktop and Tablet Styles */
+@media (min-width: 768px) {
   .main {
     max-width: 640px;
     margin: 56px auto 0;
