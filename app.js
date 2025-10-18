@@ -4,7 +4,7 @@
 const els = {
   // Video
   video: document.getElementById('video'),
-  overlay: document.getElementById('overlay'),
+  detectionOverlay: document.getElementById('detectionOverlay'),
   capture: document.getElementById('capture'),
   
   // Overlays
@@ -31,10 +31,9 @@ const els = {
   menuBtn: document.getElementById('menuBtn'),
   sideMenu: document.getElementById('sideMenu'),
   closeMenu: document.getElementById('closeMenu'),
-  overlay: document.getElementById('overlay'),
+  menuOverlay: document.getElementById('overlay'),
   
   // Theme
-  themeToggle: document.getElementById('themeToggle'),
   darkModeToggle: document.getElementById('darkModeToggle'),
   
   // Stats
@@ -46,6 +45,7 @@ const els = {
   drawBoxes: document.getElementById('drawBoxes'),
   captureEnabled: document.getElementById('captureEnabled'),
   webhookUrl: document.getElementById('webhookUrl'),
+  phoneInput: document.getElementById('phoneInput'),
   testWebhook: document.getElementById('testWebhook'),
   
   // Range controls
@@ -112,12 +112,8 @@ const Theme = {
   setTheme(theme) {
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
-      els.themeToggle.innerHTML = '☀️';
-      els.themeToggle.title = 'Modo claro';
     } else {
       document.documentElement.removeAttribute('data-theme');
-      els.themeToggle.innerHTML = '🌙';
-      els.themeToggle.title = 'Modo escuro';
     }
     
     // Save preference
@@ -179,9 +175,150 @@ const Utils = {
     return stored ? JSON.parse(stored) : defaultValue;
   },
 
+  updateButtonStates() {
+    // Verificar se tem telefone válido
+    const savedPhone = this.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneValid = Phone.isValidBrazil(inputPhoneRaw || savedPhone);
+    
+    // Verificar se câmera está ativa
+    const cameraActive = Camera.isActive();
+    
+    // Verificar se webhook está configurado
+    const webhookValid = this.isWebhookConfigured();
+    
+    // Habilitar botões só se tudo estiver OK
+    const enableButtons = phoneValid && cameraActive && webhookValid;
+    
+    if (els.captureBtn) {
+      els.captureBtn.disabled = !enableButtons;
+    }
+    
+    if (els.testWebhook) {
+      els.testWebhook.disabled = !enableButtons;
+    }
+  },
+
   isWebhookConfigured() {
-    const url = els.webhookUrl.value.trim();
+    let url = els.webhookUrl.value.trim();
+    
+    // Se campo estiver vazio, usar URL padrão
+    if (!url) {
+      url = 'https://workflow.blazysoftware.com.br/webhook/pego-no-pulo';
+      els.webhookUrl.value = url;
+    }
+    
     return url && /^https?:\/\//i.test(url);
+  }
+};
+
+// Phone utilities
+const Phone = {
+  // Normalize digits only
+  normalize(value = '') {
+    return (value || '').replace(/\D+/g, '');
+  },
+
+  // Expected full mask digits for +55 62 98116 66035 -> country(2)+area(2)+number(11) = 15? We'll accept Brazil pattern: country(2) + DDD(2) + number(9 or 8)
+  // We'll validate for: starts with 55 then 2-digit DDD then 8-9 digit number -> total 12 or 13 digits after country? We'll accept 13 (common with 9).
+  isValidBrazil(value = '') {
+    const digits = this.normalize(value);
+    // Accept patterns like 55629811666035 (14?) but user requested exact mask '+55 62 98116 66035' -> we'll require country(55) + DDD(2) + number(11) = 55 + 2 + 11 = 15 digits
+    // However common mobile format is: 55 + DDD(2) + 9XXXXXXXX -> 13 digits (55 + 2 + 9 = 12?) To remain strict we'll accept 13 or 14 or 15 digits
+    return /^(55)\d{10,13}$/.test(digits);
+  },
+
+  // Format into +55 62 98116 66035 style for display (very permissive)
+  formatDisplay(value = '') {
+    const d = this.normalize(value);
+    if (!d) return '';
+    // Ensure starts with 55
+    let s = d;
+    if (!s.startsWith('55')) s = '55' + s;
+    // Take next 2 as DDD
+    const country = s.slice(0,2);
+    const ddd = s.slice(2,4);
+    const rest = s.slice(4);
+    // Split rest roughly in middle for readability
+    const mid = Math.ceil(rest.length/2);
+    const part1 = rest.slice(0, mid);
+    const part2 = rest.slice(mid);
+    return `+${country} ${ddd} ${part1} ${part2}`.trim();
+  },
+
+  // phoneWhatsapp: remove the 5th digit if number part starts with 9
+  phoneWhatsapp(digitsOnly) {
+    if (!digitsOnly) return '';
+    // digitsOnly should start with 55
+    let s = digitsOnly;
+    if (!s.startsWith('55')) s = '55' + s;
+    // country(2) + ddd(2) + rest
+    const country = s.slice(0,2); // 55
+    const ddd = s.slice(2,4);      // 62
+    let rest = s.slice(4);         // 981666035
+    
+    // If rest starts with '9' and has 9 digits, remove the 5th digit of the mobile number
+    // Example: 981666035 -> 98166035 (remove the '6' at position 4)
+    if (rest.length === 9 && rest[0] === '9') {
+      // Remove the 5th digit (index 4) of the mobile number
+      rest = rest.slice(0,4) + rest.slice(5);
+    }
+    return `${country}${ddd}${rest}`;
+  },
+
+  // Apply mask in real-time: +55 62 98116 66035
+  applyMask(value = '') {
+    const digits = this.normalize(value);
+    if (!digits) return '';
+    
+    let formatted = '';
+    let index = 0;
+    
+    // +55 (country code)
+    if (index < digits.length) formatted += '+';
+    if (index < digits.length) formatted += digits[index++] || '';
+    if (index < digits.length) formatted += digits[index++] || '';
+    
+    // Space + 62 (area code)
+    if (index < digits.length) formatted += ' ';
+    if (index < digits.length) formatted += digits[index++] || '';
+    if (index < digits.length) formatted += digits[index++] || '';
+    
+    // Space + first part of number
+    if (index < digits.length) formatted += ' ';
+    
+    // Add remaining digits with space in middle
+    const remaining = digits.slice(index);
+    if (remaining.length <= 5) {
+      formatted += remaining;
+    } else {
+      const mid = 5; // Split at 5 characters
+      formatted += remaining.slice(0, mid);
+      if (remaining.length > mid) {
+        formatted += ' ' + remaining.slice(mid);
+      }
+    }
+    
+    return formatted;
+  },
+
+  // Adjust cursor position after applying mask
+  adjustCursorPosition(oldValue, newValue, oldCursor) {
+    // Count non-digit characters before cursor in old value
+    const oldDigitsBeforeCursor = this.normalize(oldValue.slice(0, oldCursor)).length;
+    
+    // Find position in new value where we have the same number of digits
+    let newCursor = 0;
+    let digitsFound = 0;
+    
+    for (let i = 0; i < newValue.length && digitsFound < oldDigitsBeforeCursor; i++) {
+      if (/\d/.test(newValue[i])) {
+        digitsFound++;
+      }
+      newCursor = i + 1;
+    }
+    
+    return Math.min(newCursor, newValue.length);
   }
 };
 
@@ -196,7 +333,7 @@ const Settings = {
   loadSettings() {
     // Load saved settings
     const savedSettings = {
-      webhookUrl: Utils.getUserPreference('webhookUrl', ''),
+      webhookUrl: Utils.getUserPreference('webhookUrl', 'https://workflow.blazysoftware.com.br/webhook/pego-no-pulo'),
       confidence: Utils.getUserPreference('confidence', 0.6),
       faceConfidence: Utils.getUserPreference('faceConfidence', 0.7),
       cooldown: Utils.getUserPreference('cooldown', 5),
@@ -209,6 +346,22 @@ const Settings = {
 
     // Apply settings
     els.webhookUrl.value = savedSettings.webhookUrl;
+    // Phone: attempt to prefill from URL param ?phone=... (digits only) or saved preference
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramPhone = urlParams.get('phone');
+    let prefPhone = Utils.getUserPreference('phone', '');
+    // If URL param exists, normalize digits
+    if (paramPhone) {
+      const norm = Phone.normalize(paramPhone);
+      if (Phone.isValidBrazil(norm)) prefPhone = norm;
+    }
+    // If preference is valid, format and set input, otherwise leave placeholder
+    if (prefPhone && Phone.isValidBrazil(prefPhone)) {
+      if (els.phoneInput) els.phoneInput.value = Phone.formatDisplay(prefPhone);
+      Utils.saveUserPreference('phone', prefPhone);
+    } else {
+      if (els.phoneInput) els.phoneInput.value = '';
+    }
     els.confidence.value = savedSettings.confidence;
     els.faceConfidence.value = savedSettings.faceConfidence;
     els.cooldown.value = savedSettings.cooldown;
@@ -221,6 +374,37 @@ const Settings = {
     // Update range displays
     this.updateRangeDisplays();
     this.updateWebhookStatus();
+    // Save phone on change with real-time mask
+    if (els.phoneInput) {
+      els.phoneInput.addEventListener('input', (e) => {
+        const currentValue = e.target.value || '';
+        const cursorPosition = e.target.selectionStart;
+        
+        // Apply mask in real-time
+        const maskedValue = Phone.applyMask(currentValue);
+        e.target.value = maskedValue;
+        
+        // Restore cursor position (adjusted for mask)
+        const newCursorPosition = Phone.adjustCursorPosition(currentValue, maskedValue, cursorPosition);
+        e.target.setSelectionRange(newCursorPosition, newCursorPosition);
+        
+        // Save normalized when valid
+        const norm = Phone.normalize(maskedValue);
+        if (Phone.isValidBrazil(norm)) {
+          Utils.saveUserPreference('phone', norm);
+        }
+        
+        // Update button states when phone changes
+        Utils.updateButtonStates();
+      });
+      // Format on blur if valid
+      els.phoneInput.addEventListener('blur', (e) => {
+        const norm = Phone.normalize(e.target.value || '');
+        if (Phone.isValidBrazil(norm)) {
+          e.target.value = Phone.formatDisplay(norm);
+        }
+      });
+    }
   },
 
   setupRangeSliders() {
@@ -300,6 +484,7 @@ const Settings = {
     els.webhookUrl.addEventListener('input', (e) => {
       Utils.saveUserPreference('webhookUrl', e.target.value);
       this.updateWebhookStatus();
+      Utils.updateButtonStates(); // Update buttons when webhook changes
     });
 
     els.drawBoxes.addEventListener('change', (e) => {
@@ -335,6 +520,16 @@ const AutoStart = {
   },
 
   startCountdown() {
+    // Verificar se há telefone válido antes de iniciar countdown
+    const savedPhone = Utils.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneToCheck = inputPhoneRaw || savedPhone;
+    
+    if (!Phone.isValidBrazil(phoneToCheck)) {
+      Utils.showToast('Informe um telefone válido antes de ativar a câmera automaticamente', 'warning');
+      return; // Não inicia o countdown
+    }
+
     els.autoStartOverlay.style.display = 'flex';
     let count = 5;
     
@@ -616,7 +811,7 @@ const Rules = {
 // Drawing System
 const Drawer = {
   drawAll(persons, faces) {
-    const canvas = els.overlay;
+    const canvas = els.detectionOverlay;
     const ctx = canvas.getContext('2d');
     
     // Set canvas size to match video
@@ -670,7 +865,7 @@ const Drawer = {
   },
 
   clear() {
-    const canvas = els.overlay;
+    const canvas = els.detectionOverlay;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
@@ -732,6 +927,14 @@ const Notifier = {
         test_mode: detectionInfo.is_test || false
       }
     };
+    // Attach phone info if available and valid
+    const savedPhone = Utils.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneDigits = (inputPhoneRaw || savedPhone) || '';
+    if (phoneDigits && Phone.isValidBrazil(phoneDigits)) {
+      payload.phone = phoneDigits; // e.g. 55629811666035
+      payload.phoneWhatsapp = Phone.phoneWhatsapp(phoneDigits);
+    }
 
     const url = els.webhookUrl.value.trim();
     return await this.send(url, payload);
@@ -840,7 +1043,7 @@ async function loop() {
         
         const timestamp = Utils.formatTime(Date.now());
         els.lastSend.textContent = `${timestamp} (${resp.status})`;
-        Utils.showToast(`📸 Captura executada (${resp.status})`, 'success');
+        Utils.showToast(`Captura executada (${resp.status})`, 'success');
         
       } catch (e) {
         Utils.showToast(`Erro no webhook: ${e.message}`, 'error');
@@ -885,7 +1088,18 @@ const App = {
       console.log('App.start() called but already running');
       return;
     }
-    
+    // Require valid phone before starting camera
+    const savedPhone = Utils.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneToCheck = inputPhoneRaw || savedPhone;
+    if (!Phone.isValidBrazil(phoneToCheck)) {
+      Utils.showToast('Informe um telefone válido no formato +55 62 98116 66035 antes de ativar a câmera', 'warning');
+      // keep camera disabled
+      return;
+    }
+    // ensure saved
+    if (Phone.isValidBrazil(phoneToCheck)) Utils.saveUserPreference('phone', Phone.normalize(phoneToCheck));
+
     console.log('App.start() called, starting system...');
     
     try {
@@ -916,7 +1130,7 @@ const App = {
       els.loadingOverlay.style.display = 'none';
       els.toggleBtn.disabled = false; // Re-enable button
       els.toggleBtn.querySelector('.btn-text').textContent = 'Parar';
-      els.captureBtn.disabled = false;
+      Utils.updateButtonStates(); // Update capture and test buttons based on conditions
       els.debugBtn.style.display = 'block'; // Show debug button
       
       Utils.showToast('Sistema ativado', 'success');
@@ -956,7 +1170,7 @@ const App = {
     // Reset UI
     els.toggleBtn.querySelector('.btn-text').textContent = 'Iniciar';
     els.toggleBtn.disabled = false;
-    els.captureBtn.disabled = true;
+    Utils.updateButtonStates(); // Update capture and test buttons (will disable them)
     els.debugBtn.style.display = 'none'; // Hide debug button
     
     // Reset stats
@@ -975,6 +1189,15 @@ const App = {
   async capture() {
     if (!Camera.isActive()) {
       Utils.showToast('Câmera não ativa', 'warning');
+      return;
+    }
+
+    // Validar telefone
+    const savedPhone = Utils.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneToCheck = inputPhoneRaw || savedPhone;
+    if (!Phone.isValidBrazil(phoneToCheck)) {
+      Utils.showToast('Informe um telefone válido antes de capturar', 'warning');
       return;
     }
 
@@ -1008,6 +1231,15 @@ const App = {
   },
 
   async testWebhook() {
+    // Validar telefone
+    const savedPhone = Utils.getUserPreference('phone', '');
+    const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+    const phoneToCheck = inputPhoneRaw || savedPhone;
+    if (!Phone.isValidBrazil(phoneToCheck)) {
+      Utils.showToast('Informe um telefone válido antes de testar', 'warning');
+      return;
+    }
+
     // Validar webhook URL
     if (!Utils.isWebhookConfigured()) {
       Utils.showToast('Configure uma URL de webhook válida primeiro', 'warning');
@@ -1097,7 +1329,7 @@ const UI = {
     // Menu toggle
     els.menuBtn.addEventListener('click', () => {
       els.sideMenu.classList.add('open');
-      els.overlay.classList.add('show');
+      els.menuOverlay.classList.add('show');
       els.menuBtn.classList.add('active');
     });
 
@@ -1105,19 +1337,17 @@ const UI = {
       this.closeMenu();
     });
 
-    els.overlay.addEventListener('click', () => {
+    els.menuOverlay.addEventListener('click', () => {
       this.closeMenu();
     });
 
     // Theme controls
-    els.themeToggle.addEventListener('click', () => {
-      Theme.toggle();
-    });
-
-    els.darkModeToggle.addEventListener('change', (e) => {
-      const newTheme = e.target.checked ? 'dark' : 'light';
-      Theme.setTheme(newTheme);
-    });
+    if (els.darkModeToggle) {
+      els.darkModeToggle.addEventListener('change', (e) => {
+        const newTheme = e.target.checked ? 'dark' : 'light';
+        Theme.setTheme(newTheme);
+      });
+    }
 
     // Main controls
     els.toggleBtn.addEventListener('click', (e) => {
@@ -1190,7 +1420,7 @@ const UI = {
 
   closeMenu() {
     els.sideMenu.classList.remove('open');
-    els.overlay.classList.remove('show');
+    els.menuOverlay.classList.remove('show');
     els.menuBtn.classList.remove('active');
   }
 };
@@ -1205,6 +1435,9 @@ document.addEventListener('DOMContentLoaded', () => {
   Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
   Utils.updateStatus(els.modelStatus, 'offline', 'Não carregado');
   Utils.updateStatus(els.faceModelStatus, 'offline', 'Não carregado');
+  
+  // Set initial button states
+  Utils.updateButtonStates();
   
   // Start auto-activation sequence
   setTimeout(() => {

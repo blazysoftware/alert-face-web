@@ -19,9 +19,6 @@
     <div class="header-content">
       <h1 class="logo">AI Detection</h1>
       <div class="header-actions">
-        <button class="theme-toggle" id="themeToggle" title="Alternar tema">
-          🌙
-        </button>
         <button class="menu-btn" id="menuBtn">
           <span></span>
           <span></span>
@@ -37,7 +34,7 @@
     <div class="video-section">
       <div class="video-container">
         <video id="video" playsinline autoplay muted></video>
-        <canvas id="overlay"></canvas>
+        <canvas id="detectionOverlay"></canvas>
         <canvas id="capture" style="display: none;"></canvas>
         
         <!-- Auto-start Overlay -->
@@ -54,7 +51,6 @@
         <!-- Camera Permission -->
         <div class="camera-permission" id="cameraPermission" style="display: none;">
           <div class="permission-content">
-            <div class="permission-icon">🎥</div>
             <h3>Permitir acesso à câmera?</h3>
             <p>Necessário para detecção facial</p>
             <div class="permission-actions">
@@ -139,6 +135,11 @@
         <div class="input-group">
           <label>URL do Webhook</label>
           <input type="url" id="webhookUrl" value="https://workflow.blazysoftware.com.br/webhook/pego-no-pulo">
+        </div>
+        <div class="input-group">
+          <label>Telefone (WhatsApp)</label>
+          <input type="tel" id="phoneInput" placeholder="+55 62 98116 66035" inputmode="tel" />
+          <small class="input-help">Formato: +55 62 98116 66035 — será exigido para ativar a câmera</small>
         </div>
         <button class="btn-secondary full-width" id="testWebhook">Testar Conexão</button>
         <div class="status-text" id="webhookStatus">Não configurado</div>
