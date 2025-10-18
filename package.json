@@ -1,0 +1,48 @@
+{
+  "name": "alert-face-web",
+  "version": "1.0.0",
+  "description": "Sistema policial de detecção facial com AI - TensorFlow.js + Webhooks",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "dev": "python3 -m http.server 3000",
+    "serve": "npx serve .",
+    "build": "echo 'Static site - no build needed'",
+    "test": "echo 'No tests configured'"
+  },
+  "keywords": [
+    "tensorflow",
+    "face-detection",
+    "person-detection",
+    "ai",
+    "computer-vision",
+    "security",
+    "webcam",
+    "police",
+    "surveillance",
+    "webhook"
+  ],
+  "author": "blazysoftware",
+  "license": "MIT",
+  "homepage": "https://github.com/blazysoftware/alert-face-web",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blazysoftware/alert-face-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/blazysoftware/alert-face-web/issues"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0"
+  },
+  "files": [
+    "index.html",
+    "app.js",
+    "styles.css",
+    "README.md",
+    ".env.example"
+  ]
+}

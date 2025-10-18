@@ -2,6 +2,27 @@
 
 Sistema de câmera de segurança inteligente que detecta pessoas e rostos em tempo real, enviando alertas com capturas de tela via webhook.
 
+## 🚀 Deploy Rápido no Coolify
+
+### Método Git (Recomendado)
+1. **Criar Novo Resource** no Coolify
+2. **Git Repository**: `https://github.com/blazysoftware/alert-face-web.git`
+3. **Build Pack**: Static Site
+4. **Port**: 80
+5. **Enable HTTPS**: ✅ (Obrigatório para câmera)
+
+### Estrutura Pronta para Deploy
+```
+📁 Projeto (Static Site)
+├── index.html     # Interface principal
+├── app.js         # Lógica AI + Webhooks  
+├── styles.css     # Tema policial
+├── Dockerfile     # Deploy containerizado
+└── DEPLOY.md      # Guia completo de deploy
+```
+
+⚠️ **HTTPS Obrigatório**: Browsers exigem HTTPS para acesso à câmera
+
 ## 🚀 Funcionalidades
 
 ### 🤖 Detecção IA Dupla
