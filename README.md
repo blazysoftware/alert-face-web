@@ -171,3 +171,158 @@ Interface otimizada para:
 - **Background Processing**: Não bloqueia interface
 
 Sistema ideal para monitoramento de segurança residencial, comercial ou industrial.# alert-face-web
+
+🚨 **Sistema Policial de Detecção Facial com AI** 
+
+Sistema avançado de monitoramento em tempo real usando TensorFlow.js para detecção de pessoas e faces com webhook automático.
+
+## 🎯 Funcionalidades
+
+- **Detecção AI Dupla**: COCO-SSD (pessoas) + BlazeFace (rostos)
+- **Interface Policial**: Tema escuro profissional com status em tempo real
+- **Webhook Automático**: Envio de alertas com imagem limpa (base64)
+- **Performance Mobile**: Controle de FPS (1-30) otimizado para dispositivos móveis
+- **Cache Inteligente**: Modelos salvos localmente para inicialização rápida
+- **Log Hacker Style**: Terminal verde monospace com mensagens concisas
+- **Controle Anti-Spam**: 1 alerta por rosto detectado + cooldown configurável
+
+## 🚀 Tecnologias
+
+- **TensorFlow.js 4.10.0**: Framework de Machine Learning
+- **COCO-SSD 2.2.3**: Detecção de pessoas
+- **BlazeFace 0.0.7**: Detecção facial de alta precisão
+- **HTML5 Canvas**: Renderização de overlays
+- **Web APIs**: getUserMedia, localStorage, fetch
+
+## 📱 Otimização Mobile
+
+- **5 FPS padrão**: Ideal para celulares simples
+- **Processamento reduzido**: Configurável de 1-30 FPS
+- **Cache persistente**: Evita re-download de modelos
+- **Interface responsiva**: Adaptada para telas pequenas
+
+## ⚙️ Configuração
+
+### Controles Disponíveis:
+- **Sensibilidade Pessoas**: 0-100% (padrão: 60%)
+- **Sensibilidade Rostos**: 0-100% (padrão: 70%)
+- **Intervalo Alertas**: 0-60s (padrão: 5s)
+- **Performance FPS**: 1-30 FPS (padrão: 5 FPS)
+- **Captura Automática**: On/Off
+- **Detecções Visuais**: On/Off
+
+## 🔗 Webhook
+
+### Payload de Alerta:
+```json
+{
+  "event": "security_detection",
+  "timestamp": "2025-10-18T21:30:15.123Z",
+  "camera_id": "webcam_001",
+  "location": "Entrada Principal",
+  "detection_summary": {
+    "total_persons": 1,
+    "total_faces": 1,
+    "total_detections": 2
+  },
+  "detections": {
+    "persons": [...],
+    "faces": [...]
+  },
+  "image": {
+    "format": "jpeg",
+    "data": "data:image/jpeg;base64,/9j/4AA...",
+    "size": 87456
+  }
+}
+```
+
+## 🔥 Log System
+
+Log no estilo hacker com mensagens concisas:
+
+```bash
+21:30:15 [OK] COCO-SSD cached
+21:30:16 [OK] BlazeFace cached  
+21:30:17 [OK] SYSTEM ACTIVE
+21:30:20 [ALERT] FACE ALERT sent (200)
+```
+
+**Ícones do Terminal:**
+- `>>` Info
+- `[OK]` Sucesso  
+- `[!]` Aviso
+- `[X]` Erro
+- `[ALERT]` Detecção
+
+## 🛡️ Segurança
+
+- **Processamento Local**: Todos os dados ficam no browser
+- **Sem Upload**: Imagens não são enviadas para servidores externos
+- **Cache Seguro**: Modelos salvos apenas localmente
+- **Webhook Opcional**: Sistema funciona offline
+
+## 📋 Como Usar
+
+1. **Abrir**: `index.html` no navegador
+2. **Configurar**: URL do webhook (opcional)
+3. **Permitir**: Acesso à câmera
+4. **Ativar**: Sistema de monitoramento
+5. **Monitorar**: Detecções em tempo real
+
+## 🔧 Desenvolvimento
+
+```bash
+# Servidor local para testes
+python3 -m http.server 8080
+
+# Acesso via:
+http://localhost:8080
+```
+
+## 📊 Status dos Modelos
+
+- **COCO-SSD**: ~5MB (lite_mobilenet_v2)
+- **BlazeFace**: ~1MB (tensorflow.js)
+- **Cache**: localStorage + IndexedDB
+- **Compatibilidade**: Chrome, Firefox, Safari, Edge
+
+## 🎮 Controles
+
+- **🚨 ATIVAR SISTEMA**: Iniciar monitoramento
+- **⏹️ DESATIVAR**: Parar sistema
+- **📸 CAPTURA IMEDIATA**: Foto manual com webhook
+- **🧪 TESTE COMUNICAÇÃO**: Verificar webhook
+- **🗑️ LIMPAR CACHE**: Reset dos modelos
+- **ℹ️ DETALHES**: Info dos modelos
+
+## 📈 Performance
+
+| Dispositivo | FPS Recomendado | Uso CPU |
+|-------------|-----------------|---------|
+| Mobile Simples | 1-3 FPS | Baixo |
+| Mobile Moderno | 5-10 FPS | Médio |
+| Desktop | 15-30 FPS | Alto |
+
+## 🐛 Troubleshooting
+
+**Câmera não funciona:**
+- Verificar permissões do browser
+- Usar HTTPS (obrigatório para câmera)
+- Testar em outros browsers
+
+**Performance lenta:**
+- Reduzir FPS para 1-3
+- Desabilitar detecções visuais
+- Limpar cache do browser
+
+**Webhook falha:**
+- Verificar URL e conectividade
+- Testar com webhook.site
+- Verificar CORS do servidor
+
+---
+
+🔧 **Desenvolvido por**: blazysoftware  
+📅 **Versão**: 1.0 (Outubro 2025)  
+📄 **Licença**: MIT
