@@ -399,7 +399,7 @@ const Utils = {
         age: Date.now() - t.createdAt
       }))
     };
-  },
+  }, 
 
   // Modal para solicitar telefone válido
   async showPhoneModal() {
