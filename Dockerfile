@@ -3,18 +3,12 @@ FROM nginx:alpine
 # Instalar curl para health checks
 RUN apk add --no-cache curl
 
-# Remover configuração padrão do nginx
-RUN rm /etc/nginx/nginx.conf
+
 
 # Copiar arquivos da aplicação
 COPY index.html /usr/share/nginx/html/
 COPY app.js /usr/share/nginx/html/
 COPY styles.css /usr/share/nginx/html/
-COPY README.md /usr/share/nginx/html/
-COPY .env.example /usr/share/nginx/html/
-
-# Copiar configuração customizada do nginx
-COPY nginx.conf /etc/nginx/nginx.conf
 
 # Criar diretório para PID do nginx
 RUN mkdir -p /var/run/nginx

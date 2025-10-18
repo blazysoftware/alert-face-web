@@ -53,6 +53,8 @@ const els = {
   cooldownValue: document.getElementById('cooldownValue'),
   performance: document.getElementById('performance'),
   performanceValue: document.getElementById('performanceValue'),
+  captureDelay: document.getElementById('captureDelay'),
+  captureDelayValue: document.getElementById('captureDelayValue'),
   
   // Status
   cameraStatus: document.getElementById('cameraStatus'),
@@ -85,7 +87,11 @@ const state = {
   lastLogMessages: new Set(),
   faceAlertSent: false,
   autoStartTimer: null,
-  cameraPermissionGranted: false
+  cameraPermissionGranted: false,
+  
+  // Sistema de delay para frente
+  pendingCapture: null, // {frameCount: X, detectionInfo: {}, scheduledAt: timestamp}
+  currentFrameCount: 0
 };
 
 // Utility Functions
@@ -143,6 +149,7 @@ const Settings = {
       faceConfidence: Utils.getUserPreference('faceConfidence', 0.7),
       cooldown: Utils.getUserPreference('cooldown', 5),
       performance: Utils.getUserPreference('performance', 5),
+      captureDelay: Utils.getUserPreference('captureDelay', 3),
       drawBoxes: Utils.getUserPreference('drawBoxes', true),
       captureEnabled: Utils.getUserPreference('captureEnabled', true),
       cameraPermissionGranted: Utils.getUserPreference('cameraPermissionGranted', false)
@@ -154,6 +161,7 @@ const Settings = {
     els.faceConfidence.value = savedSettings.faceConfidence;
     els.cooldown.value = savedSettings.cooldown;
     els.performance.value = savedSettings.performance;
+    els.captureDelay.value = savedSettings.captureDelay;
     els.drawBoxes.checked = savedSettings.drawBoxes;
     els.captureEnabled.checked = savedSettings.captureEnabled;
     state.cameraPermissionGranted = savedSettings.cameraPermissionGranted;
@@ -193,6 +201,21 @@ const Settings = {
       els.performanceValue.textContent = `${fps} FPS (${label})`;
       Utils.saveUserPreference('performance', fps);
     });
+
+    els.captureDelay.addEventListener('input', (e) => {
+      const frames = parseInt(e.target.value);
+      const fps = parseInt(els.performance.value) || 5;
+      const timeMs = Math.round((frames / fps) * 1000);
+      
+      let label = '';
+      if (frames === 0) label = 'Imediato';
+      else if (frames <= 2) label = 'Rápido';
+      else if (frames <= 4) label = 'Médio';
+      else label = 'Lento';
+      
+      els.captureDelayValue.textContent = `${frames} frames (~${timeMs}ms) - ${label}`;
+      Utils.saveUserPreference('captureDelay', frames);
+    });
   },
 
   updateRangeDisplays() {
@@ -209,6 +232,16 @@ const Settings = {
     else if (fps <= 20) label = 'High';
     else label = 'Ultra';
     els.performanceValue.textContent = `${fps} FPS (${label})`;
+    
+    // Atualiza display do delay de captura
+    const frames = parseInt(els.captureDelay.value);
+    const timeMs = Math.round((frames / fps) * 1000);
+    let delayLabel = '';
+    if (frames === 0) delayLabel = 'Imediato';
+    else if (frames <= 2) delayLabel = 'Rápido';
+    else if (frames <= 4) delayLabel = 'Médio';
+    else delayLabel = 'Lento';
+    els.captureDelayValue.textContent = `${frames} frames (~${timeMs}ms) - ${delayLabel}`;
   },
 
   setupEventListeners() {
@@ -698,35 +731,80 @@ async function loop() {
     const cooldownMs = (parseInt(els.cooldown.value, 10) || 0) * 1000;
     const canSend = now - state.lastSendAt >= cooldownMs;
     
-    // Só envia se: tem faces + webhook válido + não enviou ainda + cooldown ok
-    const shouldSendAlert = hasFaces && hasValidWebhook && !state.faceAlertSent && canSend;
+    // Incrementa contador de frames
+    state.currentFrameCount++;
     
-    if (shouldSendAlert) {
-      try {
-        const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
-        let imageBase64 = null;
+    // 🎯 NOVA LÓGICA: Sistema de delay para FRENTE
+    const shouldScheduleCapture = hasFaces && hasValidWebhook && !state.faceAlertSent && canSend && !state.pendingCapture;
+    
+    if (shouldScheduleCapture) {
+      // Detectou rosto - AGENDA captura para N frames no futuro
+      const delayFrames = parseInt(els.captureDelay.value) || 3;
+      const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+      
+      if (delayFrames === 0) {
+        // Captura imediata (sem delay)
+        try {
+          let imageBase64 = null;
+          if (captureEnabled) {
+            imageBase64 = ImageCapture.captureCleanFrame(els.video);
+          }
+          
+          const resp = await Notifier.sendSecurityAlert(detectionInfo, imageBase64);
+          state.lastSendAt = Date.now();
+          state.faceAlertSent = true;
+          
+          const timestamp = Utils.formatTime(Date.now());
+          els.lastSend.textContent = `${timestamp} (${resp.status})`;
+          Utils.showToast(`Alerta enviado imediato (${resp.status})`, 'success');
+        } catch (e) {
+          Utils.showToast(`Erro no webhook: ${e.message}`, 'error');
+        }
+      } else {
+        // Agenda captura para o futuro
+        state.pendingCapture = {
+          frameCount: state.currentFrameCount + delayFrames,
+          detectionInfo: detectionInfo,
+          scheduledAt: Date.now(),
+          captureEnabled: captureEnabled
+        };
         
-        if (captureEnabled) {
+        state.faceAlertSent = true; // Marca como enviado para não reagendar
+        Utils.showToast(`📸 Captura agendada em ${delayFrames} frames`, 'info');
+      }
+    }
+    
+    // Verifica se chegou a hora de executar captura agendada
+    if (state.pendingCapture && state.currentFrameCount >= state.pendingCapture.frameCount) {
+      try {
+        let imageBase64 = null;
+        if (state.pendingCapture.captureEnabled) {
           imageBase64 = ImageCapture.captureCleanFrame(els.video);
         }
         
-        const resp = await Notifier.sendSecurityAlert(detectionInfo, imageBase64);
+        const resp = await Notifier.sendSecurityAlert(state.pendingCapture.detectionInfo, imageBase64);
         state.lastSendAt = Date.now();
-        state.faceAlertSent = true;
         
         const timestamp = Utils.formatTime(Date.now());
         els.lastSend.textContent = `${timestamp} (${resp.status})`;
-        
-        Utils.showToast(`Alerta enviado (${resp.status})`, 'success');
+        Utils.showToast(`📸 Captura executada (${resp.status})`, 'success');
         
       } catch (e) {
         Utils.showToast(`Erro no webhook: ${e.message}`, 'error');
+      } finally {
+        // Limpa captura agendada
+        state.pendingCapture = null;
       }
     }
     
     // Reset alert flag when no faces
     if (!hasFaces) {
       state.faceAlertSent = false;
+      // Cancela captura pendente se não há mais faces
+      if (state.pendingCapture) {
+        state.pendingCapture = null;
+        Utils.showToast('❌ Captura cancelada - sem faces', 'warning');
+      }
     }
     
     state.lastPersonPresent = validPersons.length > 0;
@@ -777,6 +855,10 @@ const App = {
       state.running = true;
       state.systemStartTime = Date.now();
       state.faceAlertSent = false;
+      
+      // Reset sistema de delay para frente
+      state.pendingCapture = null;
+      state.currentFrameCount = 0;
       
       els.loadingOverlay.style.display = 'none';
       els.toggleBtn.disabled = false; // Re-enable button
@@ -829,8 +911,10 @@ const App = {
     els.faceCount.textContent = '0';
     els.totalDetections.textContent = '0';
     
-    // Reset alert state
+    // Reset alert state e sistema de delay
     state.faceAlertSent = false;
+    state.pendingCapture = null;
+    state.currentFrameCount = 0;
     
     Utils.showToast('Sistema parado', 'warning');
   },
@@ -898,10 +982,10 @@ const App = {
       const imageInfo = imageBase64 ? '+img' : '';
       els.lastSend.textContent = `${timestamp} (test:${resp.status})${imageInfo}`;
       
-      Utils.showToast(`Teste ok (${resp.status})`, 'success');
+      Utils.showToast(`Teste OK (${resp.status})`, 'success');
       
     } catch (e) {
-      Utils.showToast(`Teste falhou: ${e.message}`, 'error');
+      Utils.showToast(`Teste Falhou: ${e.message}`, 'error');
     }
   }
 };
