@@ -1,12 +1,11 @@
 # AI Face Detection - Docker Setup
 
-Este projeto está configurado para deploy automático com **Coolify** usando Docker.
+Este projeto está configurado para deploy automático com **Coolify** usando apenas Docker.
 
 ## 🐳 Configuração Docker
 
 ### Estrutura
 - `Dockerfile` - Imagem baseada em Nginx Alpine
-- `docker-compose.yml` - Configuração para desenvolvimento local
 - `nginx.conf` - Configuração personalizada do Nginx
 - `404.html` / `50x.html` - Páginas de erro personalizadas
 
@@ -34,7 +33,6 @@ Este projeto está configurado para deploy automático com **Coolify** usando Do
 ### Pré-requisitos
 ```bash
 docker --version
-docker-compose --version
 ```
 
 ### Comandos Disponíveis
@@ -68,14 +66,26 @@ make clean
 make test
 ```
 
+### Comandos Docker Diretos
+```bash
+# Build
+docker build -t ai-face-detection .
+
+# Run
+docker run -d --name ai-face-detection -p 3000:80 ai-face-detection
+
+# Stop
+docker stop ai-face-detection && docker rm ai-face-detection
+```
+
 ## ☁️ Deploy com Coolify
 
 ### Configuração no Coolify
 
 1. **Repositório**: `https://github.com/blazysoftware/alert-face-web`
 2. **Branch**: `main`
-3. **Build Pack**: `Docker Compose`
-4. **Port**: `3000` (interno), mapeado automaticamente pelo Coolify
+3. **Build Pack**: `Dockerfile`
+4. **Port**: `80` (interno), mapeado automaticamente pelo Coolify
 
 ### Variáveis de Ambiente
 Nenhuma variável especial necessária - a aplicação é estática.
@@ -86,15 +96,11 @@ Nenhuma variável especial necessária - a aplicação é estática.
 - **Timeout**: 10s
 - **Retries**: 3
 
-### Volumes Persistentes
-- `nginx-logs` - Logs do Nginx (opcional)
-
 ## 📁 Estrutura de Arquivos
 
 ```
 .
 ├── Dockerfile              # Imagem Docker
-├── docker-compose.yml      # Configuração local
 ├── nginx.conf             # Config personalizada Nginx
 ├── .dockerignore          # Arquivos ignorados no build
 ├── Makefile               # Comandos de desenvolvimento
@@ -110,7 +116,7 @@ Nenhuma variável especial necessária - a aplicação é estática.
 ### Automatizado via Coolify
 1. Push para `main` branch
 2. Coolify detecta mudanças
-3. Build automático da imagem Docker
+3. Build automático da imagem Docker usando Dockerfile
 4. Deploy com zero downtime
 5. Health check automático
 
@@ -169,4 +175,4 @@ make ps
 
 ---
 
-**Nota**: Este setup é otimizado para Coolify e não requer configuração manual de reverse proxy ou SSL - o Coolify gerencia tudo automaticamente.
+**Nota**: Este setup é otimizado para Coolify usando apenas Dockerfile. O Coolify gerencia automaticamente networking, volumes e SSL sem necessidade de docker-compose.

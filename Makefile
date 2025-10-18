@@ -15,19 +15,20 @@ build: ## Construir a imagem Docker
 
 run: ## Executar container local
 	@echo "🚀 Iniciando container local..."
-	docker-compose up -d
+	docker run -d --name ai-face-detection -p 3000:80 ai-face-detection:latest
 	@echo "✅ Container iniciado em http://localhost:3000"
 
 stop: ## Parar containers
 	@echo "⏹️ Parando containers..."
-	docker-compose down
+	docker stop ai-face-detection || true
+	docker rm ai-face-detection || true
 	@echo "✅ Containers parados!"
 
-restart: stop run ## Reiniciar containers
+restart: stop build run ## Reiniciar containers
 
 logs: ## Ver logs do container
 	@echo "📋 Logs do container:"
-	docker-compose logs -f ai-detection
+	docker logs -f ai-face-detection
 
 health: ## Verificar status do container
 	@echo "🔍 Verificando status..."
@@ -45,14 +46,15 @@ test: ## Testar build e funcionamento
 
 clean: ## Limpar containers e imagens
 	@echo "🧹 Limpando containers e imagens..."
-	docker-compose down -v
+	docker stop ai-face-detection || true
+	docker rm ai-face-detection || true
 	docker rmi ai-face-detection:latest || true
 	docker system prune -f
 	@echo "✅ Limpeza concluída!"
 
 shell: ## Abrir shell no container
 	@echo "🐚 Abrindo shell no container..."
-	docker-compose exec ai-detection sh
+	docker exec -it ai-face-detection sh
 
 nginx-test: ## Testar configuração do Nginx
 	@echo "🔧 Testando configuração do Nginx..."
