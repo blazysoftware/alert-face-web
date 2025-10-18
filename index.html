@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🚨 Sistema de Monitoramento Policial IA</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+</head>
+<body>
+  <header class="police-header">
+    <div class="badge">🚔</div>
+    <div class="title">
+      <h1>SISTEMA DE MONITORAMENTO POLICIAL</h1>
+      <p>Unidade: <span id="unitId">WEBCAM-001</span> | Localização: <span id="location">Entrada Principal</span></p>
+    </div>
+    <div class="status-indicator">
+      <div class="indicator" id="systemStatus">🔴 OFFLINE</div>
+      <div class="time" id="currentTime">--:--:--</div>
+    </div>
+  </header>
+
+  <main class="police-app">
+    <!-- Painel de Controle Central -->
+    <section class="control-center">
+      <div class="control-panel">
+        <h3>🎛️ CONTROLE OPERACIONAL</h3>
+        <div class="main-controls">
+          <button id="btnStart" class="btn-primary">🚨 ATIVAR SISTEMA</button>
+          <button id="btnStop" class="btn-danger" disabled>⏹️ DESATIVAR</button>
+          <button id="btnCapture" class="btn-capture">📸 CAPTURA IMEDIATA</button>
+          <button id="btnTest" class="btn-test">🧪 TESTE COMUNICAÇÃO</button>
+        </div>
+      </div>
+
+      <div class="settings-panel">
+        <h3>⚙️ CONFIGURAÇÕES DE DETECÇÃO</h3>
+        <div class="settings-grid">
+          <label>🎯 Sensibilidade Pessoas:
+            <input id="confidence" type="range" min="0" max="1" step="0.05" value="0.6" />
+            <span id="confidenceValue">60%</span>
+          </label>
+          <label>👤 Sensibilidade Rostos:
+            <input id="faceConfidence" type="range" min="0" max="1" step="0.05" value="0.7" />
+            <span id="faceConfidenceValue">70%</span>
+          </label>
+          <label>⏱️ Intervalo Alertas:
+            <input id="cooldown" type="range" min="0" max="60" value="5" />
+            <span id="cooldownValue">5s</span>
+          </label>
+          <label>⚡ Performance (FPS):
+            <input id="performance" type="range" min="1" max="30" value="5" />
+            <span id="performanceValue">5 FPS (Mobile)</span>
+          </label>
+          <label class="checkbox">
+            <input id="drawBoxes" type="checkbox" checked />
+            📋 Mostrar Detecções Visuais
+          </label>
+          <label class="checkbox">
+            <input id="captureEnabled" type="checkbox" checked />
+            📷 Captura Automática
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Monitor Principal -->
+    <section class="monitor-section">
+      <div class="video-monitor">
+        <div class="monitor-header">
+          <h3>📹 MONITOR PRINCIPAL</h3>
+          <div class="monitor-controls">
+            <button id="toggleBoxes">👁️ BOXES</button>
+            <button id="toggleFullscreen">⛶ TELA CHEIA</button>
+          </div>
+        </div>
+        <div class="video-container">
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="overlay"></canvas>
+          <canvas id="capture" style="display: none;"></canvas>
+          <div class="recording-indicator" id="recordingIndicator">🔴 REC</div>
+        </div>
+      </div>
+
+      <!-- Painel de Informações -->
+      <div class="info-panels">
+        <!-- Status dos Modelos -->
+        <div class="info-card">
+          <h4>� STATUS DOS MODELOS IA</h4>
+          <div class="model-status">
+            <div class="model-item">
+              <span class="model-name">👥 COCO-SSD (Pessoas)</span>
+              <span class="model-status-badge" id="modelStatus">⏳ Carregando...</span>
+            </div>
+            <div class="model-item">
+              <span class="model-name">😊 BlazeFace (Rostos)</span>
+              <span class="model-status-badge" id="faceModelStatus">⏳ Carregando...</span>
+            </div>
+          </div>
+          <div class="model-controls">
+            <button id="btnModelInfo" class="btn-small">ℹ️ Detalhes</button>
+            <button id="btnClearCache" class="btn-small">🗑️ Limpar Cache</button>
+            <button id="btnForceDownload" class="btn-small">⬇️ Recarregar</button>
+          </div>
+        </div>
+
+        <!-- Detecções Ativas -->
+        <div class="info-card">
+          <h4>🎯 DETECÇÕES ATIVAS</h4>
+          <div class="detection-stats">
+            <div class="stat-item">
+              <span class="stat-icon">👥</span>
+              <span class="stat-label">Pessoas</span>
+              <span class="stat-value" id="personCount">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">😊</span>
+              <span class="stat-label">Rostos</span>
+              <span class="stat-value" id="faceCount">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">🚨</span>
+              <span class="stat-label">Total</span>
+              <span class="stat-value" id="totalDetections">0</span>
+            </div>
+          </div>
+          <div class="detection-status" id="detectStatus">🔍 Aguardando detecções...</div>
+        </div>
+
+        <!-- Histórico de Eventos -->
+        <div class="info-card">
+          <h4>📋 REGISTRO DE EVENTOS</h4>
+          <div class="event-log" id="eventLog">
+            <div class="log-entry">🟡 Sistema inicializado</div>
+          </div>
+        </div>
+
+        <!-- Comunicação -->
+        <div class="info-card">
+          <h4>📡 STATUS COMUNICAÇÃO</h4>
+          <div class="comm-status">
+            <div class="webhook-url">
+              <label>🌐 Endpoint:</label>
+              <input id="webhookUrl" type="url" value="https://workflow.blazysoftware.com.br/webhook/pego-no-pulo" placeholder="URL do webhook" />
+            </div>
+            <div class="comm-info">
+              <span class="comm-label">Último Envio:</span>
+              <span class="comm-value" id="lastSend">Nenhum</span>
+            </div>
+            <div class="comm-info">
+              <span class="comm-label">Status Câmera:</span>
+              <span class="comm-value" id="cameraStatus">🔴 Offline</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="police-footer">
+    <div class="footer-info">
+      <span>⚡ Powered by TensorFlow.js | 🛡️ Sistema de Segurança IA | 📅 <span id="currentDate"></span></span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
+</body>
+</html>
