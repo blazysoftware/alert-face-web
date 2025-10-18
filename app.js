@@ -34,6 +34,7 @@ const els = {
   menuOverlay: document.getElementById('overlay'),
   
   // Theme
+  themeToggle: document.getElementById('themeToggle'),
   darkModeToggle: document.getElementById('darkModeToggle'),
   
   // Stats
@@ -119,6 +120,14 @@ const Theme = {
     // Save preference
     localStorage.setItem('theme', theme);
     
+    // Update header theme button icon
+    if (els.themeToggle) {
+      const themeIcon = els.themeToggle.querySelector('.theme-icon');
+      if (themeIcon) {
+        themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+      }
+    }
+    
     // Update menu toggle
     if (els.darkModeToggle) {
       els.darkModeToggle.checked = theme === 'dark';
@@ -136,6 +145,16 @@ const Theme = {
 
   updateThemeUI() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    // Update header theme button icon
+    if (els.themeToggle) {
+      const themeIcon = els.themeToggle.querySelector('.theme-icon');
+      if (themeIcon) {
+        themeIcon.textContent = isDark ? '☀️' : '🌙';
+      }
+    }
+    
+    // Update menu toggle
     if (els.darkModeToggle) {
       els.darkModeToggle.checked = isDark;
     }
@@ -1342,6 +1361,14 @@ const UI = {
     });
 
     // Theme controls
+    if (els.themeToggle) {
+      els.themeToggle.addEventListener('click', () => {
+        const currentTheme = Utils.getUserPreference('theme', 'light');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        Theme.setTheme(newTheme);
+      });
+    }
+    
     if (els.darkModeToggle) {
       els.darkModeToggle.addEventListener('change', (e) => {
         const newTheme = e.target.checked ? 'dark' : 'light';
