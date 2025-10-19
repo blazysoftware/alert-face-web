@@ -1,0 +1,395 @@
+{
+  "name": "workflowToN8n",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pego-no-pulo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        112,
+        -48
+      ],
+      "id": "a701ec4b-a302-4ebc-9e70-51ec476adb33",
+      "name": "Webhook",
+      "webhookId": "6deef919-8e09-4900-bde5-c109fac89978"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        336
+      ],
+      "id": "f5629401-c222-4f38-bc77-17c8f47119c8",
+      "name": "Manual"
+    },
+    {
+      "parameters": {
+        "content": "## Clean Execution\n",
+        "height": 316,
+        "width": 1392,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "31b8c00b-1c17-4a8b-aca3-b0fffa5c35af",
+      "name": "Sticky Note27"
+    },
+    {
+      "parameters": {
+        "resource": "execution",
+        "returnAll": true,
+        "filters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "f6qzWd4lbb67yUcy",
+            "mode": "id"
+          }
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        448,
+        336
+      ],
+      "id": "d5c189ed-5de2-4ccd-9ee6-f294857279bf",
+      "name": "Get many executions",
+      "credentials": {
+        "n8nApi": {
+          "id": "VocuMQbVMo7lvyaL",
+          "name": "N8N"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "execution",
+        "operation": "delete",
+        "executionId": "={{ $json.id }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        912,
+        336
+      ],
+      "id": "59b93cbe-1f06-4459-9475-0ba2e3ea388b",
+      "name": "Delete an execution",
+      "credentials": {
+        "n8nApi": {
+          "id": "VocuMQbVMo7lvyaL",
+          "name": "N8N"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        672,
+        304
+      ],
+      "id": "81cbcca6-76bd-4821-ac70-4f7b474b87db",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-image",
+        "instanceName": "=administrator",
+        "remoteJid": "={{ $json.body.phoneWhatsapp }}",
+        "media": "={{ $json.body.image.data.replace(\"data:image/jpeg;base64,\",\"\") }}",
+        "caption": "=*_Eu sei oque vc fez no verāo passado!_*",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        816,
+        -64
+      ],
+      "id": "a7acf1e6-6c90-4e4e-8ad4-19bcf30a8d6c",
+      "name": "image1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "WuubmVGy28My30cm",
+          "name": "administrator"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Clean Execution\n",
+        "height": 316,
+        "width": 1392,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        -160
+      ],
+      "typeVersion": 1,
+      "id": "5f69f590-d3cc-467d-b76b-5a47e1b658df",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2216be61-fc28-4e33-b0c2-1b7ce7b61399",
+              "leftValue": "={{ $json.body.image }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        -48
+      ],
+      "id": "e17e02fc-fcd9-40fe-9880-62a96558e44d",
+      "name": "If"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "workflow.blazysoftware.com.br",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            "content-length": "1322",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7,es;q=0.6",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "2804:2904:510:9d00:ac42:8645:d7e2:9773",
+            "cf-ipcountry": "BR",
+            "cf-ray": "990c5bcf8822012c-GRU",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "origin": "null",
+            "priority": "u=1, i",
+            "sec-ch-ua": "\"Google Chrome\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"macOS\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "172.68.19.149",
+            "x-forwarded-host": "workflow.blazysoftware.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "d55a0ecc2c91",
+            "x-real-ip": "172.68.19.149"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "event": "individual_face_detection",
+            "is_test": false,
+            "timestamp": "2025-10-19T01:03:57.225Z",
+            "camera_id": "mobile_cam_001",
+            "location": "Mobile Device",
+            "face_number": 1,
+            "total_faces_in_frame": 1,
+            "detection_summary": {
+              "total_persons": 1,
+              "total_faces": 1,
+              "total_detections": 2
+            },
+            "detections": {
+              "persons": [
+                {
+                  "type": "person",
+                  "score": 0.7539049386978149,
+                  "bbox": [
+                    209.84066009521484,
+                    191.737060546875,
+                    426.8701171875,
+                    286.4517402648926
+                  ],
+                  "confidence": 0.7539049386978149
+                }
+              ],
+              "faces": [
+                {
+                  "type": "face",
+                  "confidence": 0.8503607511520386,
+                  "bbox": [
+                    368.2490539550781,
+                    225.92205810546875,
+                    94.04855346679688,
+                    70.5377197265625
+                  ],
+                  "landmarks": [
+                    [
+                      408.4415793418884,
+                      248.24567824602127
+                    ],
+                    [
+                      425.17730236053467,
+                      241.42368257045746
+                    ],
+                    [
+                      436.63360238075256,
+                      253.75835984945297
+                    ],
+                    [
+                      437.53790259361267,
+                      270.6246703863144
+                    ],
+                    [
+                      371.68567180633545,
+                      270.28990030288696
+                    ],
+                    [
+                      414.08546328544617,
+                      254.66674905270338
+                    ]
+                  ]
+                }
+              ]
+            },
+            "individual_face": {
+              "index": 1,
+              "confidence": 1,
+              "boundingBox": [
+                368.2490539550781,
+                225.92205810546875,
+                94.04855346679688,
+                70.5377197265625
+              ],
+              "keypoints": null
+            },
+            "image": null,
+            "metadata": {
+              "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+              "screen_resolution": "2560x1080",
+              "timestamp_local": "18/10/2025, 22:03:57",
+              "test_mode": false,
+              "individual_detection": true
+            },
+            "phone": "5562981666035",
+            "phoneWhatsapp": "556281666035"
+          },
+          "webhookUrl": "https://workflow.blazysoftware.com.br/webhook/pego-no-pulo",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Manual": {
+      "main": [
+        [
+          {
+            "node": "Get many executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many executions": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete an execution": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Delete an execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ba58ff40-5d53-4832-b706-d7f3bca08e9d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b5248b922ec12b79fd1a35c2c3a37fa1d7bebe9a36b1f42d4c68c0133e0ee5cc"
+  },
+  "id": "f6qzWd4lbb67yUcy",
+  "tags": []
+}
