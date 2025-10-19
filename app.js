@@ -2711,6 +2711,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Splash Screen
   SplashScreen.init();
   
+  // Update Open Graph tags with current URL
+  URLManager.updateOpenGraphTags();
+  
   // Configure controls layout
   UIManager.setupControlsLayout();
 });
@@ -2822,6 +2825,40 @@ const URLManager = {
     if (phone) params.phone = phone;
     
     return this.createUrlWithParams(currentUrl, params);
+  },
+
+  // Atualizar meta tags Open Graph dinamicamente
+  updateOpenGraphTags() {
+    const currentUrl = window.location.href;
+    const baseUrl = window.location.origin + window.location.pathname;
+    
+    // Atualizar URL nas meta tags
+    this.updateMetaTag('property', 'og:url', currentUrl);
+    this.updateMetaTag('name', 'twitter:url', currentUrl);
+    
+    // Atualizar imagem com URL absoluta
+    const ogImageUrl = baseUrl.endsWith('/') ? baseUrl + 'og-image.svg' : baseUrl + '/og-image.svg';
+    this.updateMetaTag('property', 'og:image', ogImageUrl);
+    this.updateMetaTag('name', 'twitter:image', ogImageUrl);
+    
+    console.log('🔗 Meta tags Open Graph atualizadas:', {
+      url: currentUrl,
+      image: ogImageUrl
+    });
+  },
+
+  // Helper para atualizar meta tags
+  updateMetaTag(attribute, name, content) {
+    let tag = document.querySelector(`meta[${attribute}="${name}"]`);
+    if (tag) {
+      tag.setAttribute('content', content);
+    } else {
+      // Criar tag se não existir
+      tag = document.createElement('meta');
+      tag.setAttribute(attribute, name);
+      tag.setAttribute('content', content);
+      document.head.appendChild(tag);
+    }
   }
 };
 
@@ -2996,7 +3033,7 @@ const HiddenMode = {
           localStorage.setItem('hiddenModeUrl', formattedUrl);
           this.open(formattedUrl);
           UI.closeMenu();
-          Utils.showToast('⚠️ Modo oculto ativado (sem teste)', 'warning');
+          Utils.showToast('⚠️ Modo Oculto Ativado (sem teste)', 'warning');
         }
       });
     }
