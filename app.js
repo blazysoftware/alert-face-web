@@ -12,6 +12,7 @@ const els = {
   cameraPermission: document.getElementById('cameraPermission'),
   loadingOverlay: document.getElementById('loadingOverlay'),
   loadingText: document.getElementById('loadingText'),
+  splashScreen: document.getElementById('splashScreen'),
   
   // Auto-start
   countdown: document.getElementById('countdown'),
@@ -68,6 +69,7 @@ const els = {
   webhookStatus: document.getElementById('webhookStatus'),
   
   // Actions
+  generateShareUrl: document.getElementById('generateShareUrl'),
   clearCache: document.getElementById('clearCache'),
   modelInfo: document.getElementById('modelInfo'),
   clearToasts: document.getElementById('clearToasts'),
@@ -460,12 +462,17 @@ const Utils = {
   },
 
   saveUserPreference(key, value) {
-    localStorage.setItem(`aiDetection_${key}`, JSON.stringify(value));
+    const fullKey = `aiDetection_${key}`;
+    localStorage.setItem(fullKey, JSON.stringify(value));
+    console.log(`✅ Salvando preferência: ${fullKey} = ${value}`);
   },
 
   getUserPreference(key, defaultValue = null) {
-    const stored = localStorage.getItem(`aiDetection_${key}`);
-    return stored ? JSON.parse(stored) : defaultValue;
+    const fullKey = `aiDetection_${key}`;
+    const stored = localStorage.getItem(fullKey);
+    const result = stored ? JSON.parse(stored) : defaultValue;
+    console.log(`📖 Lendo preferência: ${fullKey} = ${result} (stored: ${stored})`);
+    return result;
   },
 
   updateButtonStates() {
@@ -839,12 +846,24 @@ const PermissionManager = {
   },
 
   async checkAndSetPermissionStatus() {
+    // PRIORIZAR permissão salva localmente
+    const savedPermission = Utils.getUserPreference('cameraPermissionGranted', false);
+    
+    if (savedPermission) {
+      console.log('Permissão encontrada no localStorage, ativando automaticamente');
+      state.cameraPermissionGranted = true;
+      return 'granted';
+    }
+    
+    // Caso não tenha permissão salva, verificar API do navegador
     const permission = await this.checkCameraPermission();
     
     switch (permission) {
       case 'granted':
+        // Se API do navegador diz que está permitido, salvar essa informação
         state.cameraPermissionGranted = true;
         Utils.saveUserPreference('cameraPermissionGranted', true);
+        console.log('Permissão concedida pela API do navegador, salvando');
         return 'granted';
         
       case 'denied':
@@ -855,10 +874,9 @@ const PermissionManager = {
       case 'prompt':
       case 'unknown':
       default:
-        // Verificar se há permissão salva anteriormente
-        const savedPermission = Utils.getUserPreference('cameraPermissionGranted', false);
-        state.cameraPermissionGranted = savedPermission;
-        return savedPermission ? 'granted' : 'prompt';
+        // Primeira vez - precisa pedir permissão
+        console.log('Primeira vez ou status desconhecido, solicitando permissão');
+        return 'prompt';
     }
   },
 
@@ -873,6 +891,19 @@ const PermissionManager = {
 
 // Auto Start System
 const AutoStart = {
+  // Função utilitária para ocultar todos os overlays
+  hideAllOverlays() {
+    if (els.autoStartOverlay) els.autoStartOverlay.style.display = 'none';
+    if (els.cameraPermission) els.cameraPermission.style.display = 'none';
+    if (els.loadingOverlay) els.loadingOverlay.style.display = 'none';
+    
+    // Remover overlay de ajuda se existir
+    const helpOverlay = document.getElementById('permissionHelp');
+    if (helpOverlay) {
+      helpOverlay.remove();
+    }
+  },
+
   async init() {
     // Verificar se está em HTTPS
     if (!PermissionManager.isHTTPS()) {
@@ -884,14 +915,29 @@ const AutoStart = {
     
     console.log('Permission status:', permissionStatus);
     
-    switch (permissionStatus) {
-      case 'granted':
-        // Permissão já concedida, iniciar countdown automaticamente
-        Utils.showToast('📷 Câmera autorizada', 'success');
+    if (permissionStatus === 'granted') {
+      // Permissão já concedida (salva ou do navegador) - ATIVAR AUTOMATICAMENTE
+      const savedPermission = Utils.getUserPreference('cameraPermissionGranted', false);
+      
+      if (savedPermission) {
+        // Ocultar imediatamente todos os overlays
+        this.hideAllOverlays();
+        
+        Utils.showToast('✅ Permissões salvas - Ativando automaticamente!', 'success');
+        setTimeout(async () => {
+          await App.start();
+        }, 500); // Mais rápido para permissões salvas
+      } else {
+        Utils.showToast('📷 Câmera autorizada - Salvando permissão', 'success');
+        Utils.saveUserPreference('cameraPermissionGranted', true);
         setTimeout(() => {
           this.startCountdown();
         }, 1000);
-        break;
+      }
+      return;
+    }
+    
+    switch (permissionStatus) {
         
       case 'denied':
         // Permissão negada, mostrar instruções
@@ -923,7 +969,7 @@ const AutoStart = {
     }
 
     els.autoStartOverlay.style.display = 'flex';
-    let count = 5;
+    let count = 3;
     
     const updateCountdown = () => {
       els.countdown.textContent = count;
@@ -943,12 +989,12 @@ const AutoStart = {
       clearTimeout(state.autoStartTimer);
       state.autoStartTimer = null;
     }
-    els.autoStartOverlay.style.display = 'none';
+    this.hideAllOverlays();
     this.showCameraPermission();
   },
 
   async autoActivate() {
-    els.autoStartOverlay.style.display = 'none';
+    this.hideAllOverlays();
     await App.start();
   },
 
@@ -961,31 +1007,42 @@ const AutoStart = {
   },
 
   async grantPermission() {
+    console.log('🔄 Iniciando processo de concessão de permissão...');
+    
     // Tentar acessar a câmera primeiro
     const hasAccess = await PermissionManager.requestCameraAccess();
     
     if (!hasAccess) {
+      console.log('❌ Acesso à câmera foi negado');
       Utils.showToast('❌ Acesso à câmera negado', 'error');
       this.showPermissionDeniedHelp();
       return;
     }
 
-    // Salvar permissão se o usuário escolheu lembrar
-    const remember = els.rememberChoice.checked;
-    if (remember) {
-      Utils.saveUserPreference('cameraPermissionGranted', true);
-      state.cameraPermissionGranted = true;
-    }
+    console.log('✅ Acesso à câmera concedido, salvando permissão...');
     
-    this.hideCameraPermission();
-    Utils.showToast('✅ Câmera autorizada com sucesso!', 'success');
-    await App.start();
+    // SEMPRE salvar permissão (remover necessidade de checkbox)
+    Utils.saveUserPreference('cameraPermissionGranted', true);
+    state.cameraPermissionGranted = true;
+    
+    // Verificar se foi salvo corretamente
+    const verificacao = Utils.getUserPreference('cameraPermissionGranted', false);
+    console.log('🔍 Verificação pós-salvamento:', verificacao);
+    
+    // Ocultar TODOS os overlays
+    this.hideAllOverlays();
+    
+    Utils.showToast('✅ Câmera autorizada - Permissão salva permanentemente!', 'success');
+    
+    // Pequeno delay para garantir que salvou
+    setTimeout(async () => {
+      await App.start();
+    }, 500);
   },
 
   showPermissionDeniedHelp() {
-    // Esconder outros overlays
-    this.hideCameraPermission();
-    els.autoStartOverlay.style.display = 'none';
+    // Esconder todos os overlays
+    this.hideAllOverlays();
 
     // Criar overlay de ajuda
     const helpOverlay = document.createElement('div');
@@ -1448,6 +1505,86 @@ const Notifier = {
 
     const url = els.webhookUrl.value.trim();
     return await this.send(url, payload);
+  },
+
+  // Nova função para enviar cada rosto detectado individualmente
+  async sendIndividualFaceAlerts(validFaces, validPersons, imageBase64 = null) {
+    const results = [];
+    
+    // Enviar cada rosto individualmente
+    for (let i = 0; i < validFaces.length; i++) {
+      const face = validFaces[i];
+      
+      const individualDetectionInfo = {
+        is_test: false,
+        persons: validPersons, // Manter pessoas na detecção
+        faces: [face], // Apenas este rosto específico
+        totalDetections: validPersons.length + 1 // Pessoas + este rosto
+      };
+      
+      try {
+        const payload = {
+          event: 'individual_face_detection',
+          is_test: false,
+          timestamp: new Date().toISOString(),
+          camera_id: 'mobile_cam_001',
+          location: 'Mobile Device',
+          face_number: i + 1,
+          total_faces_in_frame: validFaces.length,
+          detection_summary: {
+            total_persons: validPersons.length,
+            total_faces: 1, // Apenas este rosto
+            total_detections: validPersons.length + 1
+          },
+          detections: {
+            persons: validPersons,
+            faces: [face] // Apenas este rosto
+          },
+          individual_face: {
+            index: i + 1,
+            confidence: face.probability ? face.probability[0] : 1,
+            boundingBox: face.boundingBox || face.bbox,
+            keypoints: face.keypoints || null
+          },
+          image: imageBase64 ? {
+            format: 'jpeg',
+            data: imageBase64,
+            size: Math.round(imageBase64.length * 0.75)
+          } : null,
+          metadata: {
+            user_agent: navigator.userAgent,
+            screen_resolution: `${screen.width}x${screen.height}`,
+            timestamp_local: new Date().toLocaleString('pt-BR'),
+            test_mode: false,
+            individual_detection: true
+          }
+        };
+
+        // Attach phone info if available and valid
+        const savedPhone = Utils.getUserPreference('phone', '');
+        const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+        const phoneDigits = (inputPhoneRaw || savedPhone) || '';
+        if (phoneDigits && Phone.isValidBrazil(phoneDigits)) {
+          payload.phone = phoneDigits;
+          payload.phoneWhatsapp = Phone.phoneWhatsapp(phoneDigits);
+        }
+
+        const url = els.webhookUrl.value.trim();
+        const response = await this.send(url, payload);
+        results.push({ face: i + 1, success: true, response });
+        
+        // Pequeno delay entre envios para não sobrecarregar o servidor
+        if (i < validFaces.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+      } catch (error) {
+        console.error(`❌ Erro ao enviar rosto ${i + 1}:`, error);
+        results.push({ face: i + 1, success: false, error: error.message });
+      }
+    }
+    
+    return results;
   }
 };
 
@@ -1517,13 +1654,27 @@ async function loop() {
             imageBase64 = ImageCapture.captureCleanFrame(els.video);
           }
           
-          const resp = await Notifier.sendSecurityAlert(detectionInfo, imageBase64);
+          // Enviar cada rosto individualmente
+          const results = await Notifier.sendIndividualFaceAlerts(validFaces, validPersons, imageBase64);
           state.lastSendAt = Date.now();
           state.faceAlertSent = true;
           
           const timestamp = Utils.formatTime(Date.now());
-          els.lastSend.textContent = `${timestamp} (${resp.status})`;
-          Utils.showToast(`Alerta enviado imediato (${resp.status})`, 'success');
+          const successCount = results.filter(r => r.success).length;
+          const totalFaces = results.length;
+          
+          els.lastSend.textContent = `${timestamp} (${successCount}/${totalFaces} rostos)`;
+          Utils.showToast(`📸 ${successCount}/${totalFaces} rostos enviados`, 'success');
+          
+          // Log detalhado dos resultados
+          results.forEach(result => {
+            if (result.success) {
+              console.log(`✅ Rosto ${result.face} enviado com sucesso`);
+            } else {
+              console.error(`❌ Erro no rosto ${result.face}: ${result.error}`);
+            }
+          });
+          
         } catch (e) {
           Utils.showToast(`Erro no webhook: ${e.message}`, 'error');
         }
@@ -1548,12 +1699,26 @@ async function loop() {
           imageBase64 = ImageCapture.captureCleanFrame(els.video);
         }
         
-        const resp = await Notifier.sendSecurityAlert(state.pendingCapture.detectionInfo, imageBase64);
+        // Enviar cada rosto individualmente na captura agendada
+        const detectionInfo = state.pendingCapture.detectionInfo;
+        const results = await Notifier.sendIndividualFaceAlerts(detectionInfo.faces, detectionInfo.persons, imageBase64);
         state.lastSendAt = Date.now();
         
         const timestamp = Utils.formatTime(Date.now());
-        els.lastSend.textContent = `${timestamp} (${resp.status})`;
-        Utils.showToast(`Captura executada (${resp.status})`, 'success');
+        const successCount = results.filter(r => r.success).length;
+        const totalFaces = results.length;
+        
+        els.lastSend.textContent = `${timestamp} (${successCount}/${totalFaces} rostos)`;
+        Utils.showToast(`⏱️ ${successCount}/${totalFaces} rostos enviados (delay)`, 'success');
+        
+        // Log detalhado dos resultados
+        results.forEach(result => {
+          if (result.success) {
+            console.log(`✅ Rosto ${result.face} enviado com delay`);
+          } else {
+            console.error(`❌ Erro no rosto ${result.face}: ${result.error}`);
+          }
+        });
         
       } catch (e) {
         Utils.showToast(`Erro no webhook: ${e.message}`, 'error');
@@ -1617,6 +1782,8 @@ const App = {
     console.log('App.start() called, starting system...');
     
     try {
+      // Ocultar todos os overlays e mostrar loading
+      AutoStart.hideAllOverlays();
       els.loadingOverlay.style.display = 'flex';
       els.toggleBtn.disabled = true;
       
@@ -1646,6 +1813,7 @@ const App = {
       els.toggleBtn.querySelector('.btn-text').textContent = 'Parar';
       Utils.updateButtonStates(); // Update capture and test buttons based on conditions
       els.debugBtn.style.display = 'block'; // Show debug button
+      UIManager.updateControlsLayout(); // Update layout for new button
       
       Utils.showToast('Sistema ativado', 'success');
       
@@ -1686,6 +1854,7 @@ const App = {
     els.toggleBtn.disabled = false;
     Utils.updateButtonStates(); // Update capture and test buttons (will disable them)
     els.debugBtn.style.display = 'none'; // Hide debug button
+    UIManager.updateControlsLayout(); // Update layout for hidden button
     
     // Reset stats
     els.personCount.textContent = '0';
@@ -1734,14 +1903,31 @@ const App = {
       const personMinScore = parseFloat(els.confidence.value) || 0.6;
       const faceMinScore = parseFloat(els.faceConfidence.value) || 0.7;
       
-      const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+      const validPersons = persons.filter(p => p.score >= personMinScore);
+      const validFaces = faces.filter(f => {
+        const confidence = f.probability ? f.probability[0] : 1;
+        return confidence >= faceMinScore;
+      });
+      
       const imageBase64 = ImageCapture.captureCleanFrame(els.video);
       
-      const resp = await Notifier.sendSecurityAlert(detectionInfo, imageBase64);
-      const timestamp = Utils.formatTime(Date.now());
-      els.lastSend.textContent = `${timestamp} (manual:${resp.status})`;
-      
-      Utils.showToast(`Captura enviada (${resp.status})`, 'success');
+      if (validFaces.length > 0) {
+        // Enviar cada rosto individualmente
+        const results = await Notifier.sendIndividualFaceAlerts(validFaces, validPersons, imageBase64);
+        const timestamp = Utils.formatTime(Date.now());
+        const successCount = results.filter(r => r.success).length;
+        const totalFaces = results.length;
+        
+        els.lastSend.textContent = `${timestamp} (manual: ${successCount}/${totalFaces} rostos)`;
+        Utils.showToast(`📸 Manual: ${successCount}/${totalFaces} rostos enviados`, 'success');
+      } else {
+        // Fallback para envio tradicional se não há rostos
+        const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+        const resp = await Notifier.sendSecurityAlert(detectionInfo, imageBase64);
+        const timestamp = Utils.formatTime(Date.now());
+        els.lastSend.textContent = `${timestamp} (manual: ${resp.status})`;
+        Utils.showToast(`📸 Captura manual enviada (${resp.status})`, 'success');
+      }
       
     } catch (e) {
       Utils.showToast(`Erro na captura: ${e.message}`, 'error');
@@ -1803,20 +1989,98 @@ const App = {
       const personMinScore = parseFloat(els.confidence.value) || 0.6;
       const faceMinScore = parseFloat(els.faceConfidence.value) || 0.7;
       
-      const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+      const validPersons = persons.filter(p => p.score >= personMinScore);
+      const validFaces = faces.filter(f => {
+        const confidence = f.probability ? f.probability[0] : 1;
+        return confidence >= faceMinScore;
+      });
+      
       const imageBase64 = ImageCapture.captureCleanFrame(els.video);
       
-      // Enviar usando o mesmo método que a captura, mas marcando como teste
-      const resp = await Notifier.sendSecurityAlert({
-        ...detectionInfo,
-        is_test: true // Adicionar flag de teste
-      }, imageBase64);
-      
-      const timestamp = Utils.formatTime(Date.now());
-      els.lastSend.textContent = `${timestamp} (test:${resp.status})`;
-      
-      const detectionText = `P:${detectionInfo.persons_count}, F:${detectionInfo.faces_count}`;
-      Utils.showToast(`Teste OK (${resp.status}) - ${detectionText}`, 'success');
+      if (validFaces.length > 0) {
+        // Para teste, criar payloads individuais marcados como teste
+        const testResults = [];
+        
+        for (let i = 0; i < validFaces.length; i++) {
+          const face = validFaces[i];
+          
+          try {
+            const payload = {
+              event: 'test_individual_face_detection',
+              is_test: true,
+              timestamp: new Date().toISOString(),
+              camera_id: 'mobile_cam_001',
+              location: 'Mobile Device',
+              face_number: i + 1,
+              total_faces_in_frame: validFaces.length,
+              detection_summary: {
+                total_persons: validPersons.length,
+                total_faces: 1,
+                total_detections: validPersons.length + 1
+              },
+              detections: {
+                persons: validPersons,
+                faces: [face]
+              },
+              individual_face: {
+                index: i + 1,
+                confidence: face.probability ? face.probability[0] : 1,
+                boundingBox: face.boundingBox || face.bbox,
+                keypoints: face.keypoints || null
+              },
+              image: imageBase64 ? {
+                format: 'jpeg',
+                data: imageBase64,
+                size: Math.round(imageBase64.length * 0.75)
+              } : null,
+              metadata: {
+                user_agent: navigator.userAgent,
+                screen_resolution: `${screen.width}x${screen.height}`,
+                timestamp_local: new Date().toLocaleString('pt-BR'),
+                test_mode: true,
+                individual_detection: true
+              }
+            };
+
+            // Attach phone info if available and valid
+            const savedPhone = Utils.getUserPreference('phone', '');
+            const inputPhoneRaw = els.phoneInput ? Phone.normalize(els.phoneInput.value) : '';
+            const phoneDigits = (inputPhoneRaw || savedPhone) || '';
+            if (phoneDigits && Phone.isValidBrazil(phoneDigits)) {
+              payload.phone = phoneDigits;
+              payload.phoneWhatsapp = Phone.phoneWhatsapp(phoneDigits);
+            }
+
+            const url = els.webhookUrl.value.trim();
+            const response = await Notifier.send(url, payload);
+            testResults.push({ face: i + 1, success: true, response });
+            
+          } catch (error) {
+            testResults.push({ face: i + 1, success: false, error: error.message });
+          }
+        }
+        
+        const timestamp = Utils.formatTime(Date.now());
+        const successCount = testResults.filter(r => r.success).length;
+        const totalFaces = testResults.length;
+        
+        els.lastSend.textContent = `${timestamp} (test: ${successCount}/${totalFaces} rostos)`;
+        Utils.showToast(`🧪 Teste: ${successCount}/${totalFaces} rostos enviados`, 'success');
+        
+      } else {
+        // Fallback para teste tradicional se não há rostos
+        const detectionInfo = Rules.getDetectionInfo(persons, faces, personMinScore, faceMinScore);
+        const resp = await Notifier.sendSecurityAlert({
+          ...detectionInfo,
+          is_test: true
+        }, imageBase64);
+        
+        const timestamp = Utils.formatTime(Date.now());
+        els.lastSend.textContent = `${timestamp} (test: ${resp.status})`;
+        
+        const detectionText = `P:${detectionInfo.persons_count}, F:${detectionInfo.faces_count}`;
+        Utils.showToast(`🧪 Teste OK (${resp.status}) - ${detectionText}`, 'success');
+      }
       
     } catch (e) {
       Utils.showToast(`Teste Falhou: ${e.message}`, 'error');
@@ -1975,6 +2239,87 @@ const UI = {
       Utils.showToast(`${toastCount} notificações removidas`, 'info');
     });
 
+    // Generate Share URL action
+    els.generateShareUrl.addEventListener('click', async () => {
+      const { value: formData } = await Swal.fire({
+        title: '🔗 Gerar URL de Compartilhamento',
+        html: `
+          <div style="text-align: left;">
+            <div class="input-group" style="margin-bottom: 15px;">
+              <label>URL do Site (Modo Oculto):</label>
+              <input type="url" id="shareUrlInput" class="swal2-input" placeholder="https://exemplo.com" value="${localStorage.getItem('hiddenModeUrl') || ''}" style="margin: 8px 0;">
+            </div>
+            <div class="input-group">
+              <label>Telefone (opcional):</label>
+              <input type="tel" id="sharePhoneInput" class="swal2-input" placeholder="+55 62 98116 66035" value="${Utils.getUserPreference('phone', '') ? Phone.formatDisplay(Utils.getUserPreference('phone', '')) : ''}" style="margin: 8px 0;">
+            </div>
+            <small style="color: var(--on-surface-variant);">
+              A URL gerada irá automaticamente ativar o modo oculto com a URL especificada.
+            </small>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Gerar URL',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: 'var(--primary)',
+        cancelButtonColor: 'var(--surface-variant)',
+        preConfirm: () => {
+          const urlValue = document.getElementById('shareUrlInput').value.trim();
+          const phoneValue = document.getElementById('sharePhoneInput').value.trim();
+          
+          if (!urlValue) {
+            Swal.showValidationMessage('Digite uma URL válida');
+            return false;
+          }
+          
+          return { url: urlValue, phone: phoneValue };
+        }
+      });
+
+      if (formData) {
+        const phoneNormalized = formData.phone ? Phone.normalize(formData.phone) : null;
+        const shareUrl = URLManager.generateShareUrl(formData.url, phoneNormalized);
+        
+        // Copiar para clipboard
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          
+          Swal.fire({
+            title: '✅ URL Gerada!',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>URL copiada para a área de transferência:</strong></p>
+                <div style="background: var(--surface); padding: 12px; border-radius: 8px; margin: 15px 0; word-break: break-all; font-family: monospace; font-size: 12px;">
+                  ${shareUrl}
+                </div>
+                <p><small>Quando alguém abrir esta URL, o modo oculto será ativado automaticamente com o site especificado.</small></p>
+              </div>
+            `,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            confirmButtonColor: 'var(--primary)'
+          });
+          
+          Utils.showToast('🔗 URL copiada para área de transferência!', 'success');
+          
+        } catch (error) {
+          // Fallback se clipboard não funcionar
+          Swal.fire({
+            title: '🔗 URL Gerada',
+            html: `
+              <div style="text-align: left;">
+                <p><strong>Copie a URL abaixo:</strong></p>
+                <textarea readonly style="width: 100%; height: 80px; padding: 8px; border-radius: 4px; border: 1px solid var(--outline); font-family: monospace; font-size: 12px;">${shareUrl}</textarea>
+              </div>
+            `,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            confirmButtonColor: 'var(--primary)'
+          });
+        }
+      }
+    });
+
     // Test toasts action (para demonstrar o sistema)
     els.testToasts.addEventListener('click', () => {
       // Teste do sistema de telefone primeiro
@@ -2089,15 +2434,7 @@ const UI = {
       Camera.stop();
       
       // 10. Reset dos overlays
-      if (els.autoStartOverlay) els.autoStartOverlay.style.display = 'none';
-      if (els.cameraPermission) els.cameraPermission.style.display = 'none';
-      if (els.loadingOverlay) els.loadingOverlay.style.display = 'none';
-      
-      // Limpar help overlay se existir
-      const helpOverlay = document.getElementById('permissionHelp');
-      if (helpOverlay) {
-        helpOverlay.remove();
-      }
+      AutoStart.hideAllOverlays();
       
       Utils.showToast('✅ Limpeza completa realizada!', 'success');
       Utils.showToast('🔄 Recarregue a página para reiniciar', 'info', 5000);
@@ -2157,9 +2494,134 @@ const DOMUtils = {
   }
 };
 
+// Scroll Enhancement System
+const ScrollManager = {
+  init() {
+    this.setupScrollIndicators();
+    this.setupSmoothScrolling();
+    this.setupScrollOptimization();
+  },
+
+  setupScrollIndicators() {
+    const mainElement = document.querySelector('.main');
+    if (!mainElement) return;
+
+    // Create scroll indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'scroll-indicator';
+    indicator.id = 'mainScrollIndicator';
+    document.body.appendChild(indicator);
+
+    let scrollTimeout;
+
+    mainElement.addEventListener('scroll', () => {
+      const scrollTop = mainElement.scrollTop;
+      const scrollHeight = mainElement.scrollHeight - mainElement.clientHeight;
+      const scrollPercent = (scrollTop / scrollHeight) * 100;
+
+      // Show indicator
+      indicator.classList.add('visible');
+
+      // Update position
+      const indicatorThumb = indicator.querySelector('::after') || indicator;
+      if (indicatorThumb.style) {
+        indicatorThumb.style.transform = `translateY(${scrollPercent}%)`;
+      }
+
+      // Hide after scroll stops
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        indicator.classList.remove('visible');
+      }, 1000);
+    });
+  },
+
+  setupSmoothScrolling() {
+    // Enhanced smooth scrolling for anchor links
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A' && e.target.getAttribute('href').startsWith('#')) {
+        e.preventDefault();
+        const targetId = e.target.getAttribute('href').substring(1);
+        const targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          const container = document.querySelector('.main') || window;
+          const targetPosition = targetElement.offsetTop - 80; // Account for header
+          
+          if (container.scrollTo) {
+            container.scrollTo({
+              top: targetPosition,
+              behavior: 'smooth'
+            });
+          }
+        }
+      }
+    });
+  },
+
+  setupScrollOptimization() {
+    // Optimize scroll performance on mobile
+    const mainElement = document.querySelector('.main');
+    const sideMenu = document.querySelector('.side-menu');
+    
+    if (mainElement) {
+      let isScrolling = false;
+      
+      mainElement.addEventListener('scroll', () => {
+        if (!isScrolling) {
+          window.requestAnimationFrame(() => {
+            // Add scroll class for CSS transitions
+            document.body.classList.add('scrolling');
+            
+            setTimeout(() => {
+              document.body.classList.remove('scrolling');
+              isScrolling = false;
+            }, 150);
+          });
+          isScrolling = true;
+        }
+      }, { passive: true });
+    }
+
+    // Add momentum scrolling optimization for iOS
+    if (window.navigator.userAgent.includes('iPhone') || window.navigator.userAgent.includes('iPad')) {
+      [mainElement, sideMenu].forEach(element => {
+        if (element) {
+          element.style.webkitOverflowScrolling = 'touch';
+        }
+      });
+    }
+  },
+
+  scrollToTop(element = null) {
+    const container = element || document.querySelector('.main');
+    if (container) {
+      container.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  },
+
+  scrollToBottom(element = null) {
+    const container = element || document.querySelector('.main');
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }
+};
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, initializing app...');
+  
+  // DEBUG: Verificar localStorage imediatamente
+  console.log('🔍 DEBUG - Estado do localStorage:');
+  console.log('- cameraPermissionGranted:', Utils.getUserPreference('cameraPermissionGranted', false));
+  console.log('- localStorage keys:', Object.keys(localStorage).filter(k => k.startsWith('aiDetection_')));
   
   // Validar elementos essenciais primeiro
   if (!DOMUtils.validateEssentialElements()) {
@@ -2173,6 +2635,7 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.init();
   Theme.init();
   MobileManager.init();
+  ScrollManager.init();
   
   // Initialize status
   Utils.updateStatus(els.cameraStatus, 'offline', 'Desconectada');
@@ -2199,6 +2662,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Mostrar mensagens de inicialização
   setTimeout(() => {
     Utils.showToast('🚀 Aplicação carregada com sucesso!', 'success');
+    
+    // DEBUG: Mostrar estado das permissões
+    const savedPerm = Utils.getUserPreference('cameraPermissionGranted', false);
+    if (savedPerm) {
+      Utils.showToast('🔍 DEBUG: Permissão salva encontrada!', 'info');
+    } else {
+      Utils.showToast('⚠️ DEBUG: Nenhuma permissão salva encontrada', 'warning');
+    }
+    
     setTimeout(() => {
       Utils.showToast('📱 Sistema otimizado para mobile', 'info');
     }, 800);
@@ -2207,8 +2679,499 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1600);
   }, 200);
   
+  // Check for URL parameter to auto-activate hidden mode
+  URLManager.checkAutoActivation();
+  
   // Start auto-activation sequence
   setTimeout(() => {
     AutoStart.init();
   }, 500);
+  
+  // Initialize Hidden Mode
+  HiddenMode.init();
+  
+  // Initialize Splash Screen
+  SplashScreen.init();
+  
+  // Configure controls layout
+  UIManager.setupControlsLayout();
 });
+
+// UI Manager for responsive layout
+const UIManager = {
+  setupControlsLayout() {
+    const controls = document.querySelector('.controls');
+    if (!controls) return;
+    
+    // Count visible control buttons
+    const visibleButtons = controls.querySelectorAll('.control-btn:not([style*="display: none"])');
+    
+    // Add class based on number of buttons
+    if (visibleButtons.length >= 3) {
+      controls.classList.add('three-buttons');
+    } else {
+      controls.classList.remove('three-buttons');
+    }
+  },
+  
+  updateControlsLayout() {
+    // Re-run setup when buttons visibility changes
+    this.setupControlsLayout();
+  }
+};
+
+// URL Manager for handling URL parameters
+const URLManager = {
+  getUrlParams() {
+    return new URLSearchParams(window.location.search);
+  },
+
+  checkAutoActivation() {
+    const params = this.getUrlParams();
+    const urlParam = params.get('url');
+    const phoneParam = params.get('phone');
+    
+    console.log('🔍 Verificando parâmetros da URL:');
+    console.log('- url:', urlParam);
+    console.log('- phone:', phoneParam);
+    
+    // Se tem parâmetro phone, processar
+    if (phoneParam) {
+      this.handlePhoneParam(phoneParam);
+    }
+    
+    // Se tem parâmetro url, ativar modo oculto
+    if (urlParam) {
+      this.handleUrlParam(urlParam);
+    }
+  },
+
+  handlePhoneParam(phoneParam) {
+    const normalized = Phone.normalize(phoneParam);
+    if (Phone.isValidBrazil(normalized)) {
+      Utils.saveUserPreference('phone', normalized);
+      const formatted = Phone.formatDisplay(normalized);
+      
+      if (els.phoneInput) {
+        els.phoneInput.value = formatted;
+      }
+      
+      console.log('📞 Telefone da URL salvo:', formatted);
+      Utils.showToast(`📞 Telefone configurado: ${formatted}`, 'success');
+    }
+  },
+
+  handleUrlParam(urlParam) {
+    console.log('🕶️ Parâmetro URL detectado, ativando modo oculto...');
+    
+    // Validar URL
+    const formattedUrl = HiddenMode.formatUrl(urlParam);
+    if (!HiddenMode.isValidUrl(formattedUrl)) {
+      Utils.showToast('❌ URL do parâmetro é inválida', 'error');
+      return;
+    }
+
+    // Salvar URL para uso posterior
+    localStorage.setItem('hiddenModeUrl', formattedUrl);
+    
+    // Ativar modo oculto após um breve delay
+    setTimeout(() => {
+      Utils.showToast('🕶️ Ativando modo oculto automaticamente...', 'info');
+      
+      setTimeout(() => {
+        HiddenMode.openDirect(formattedUrl);
+      }, 1500);
+    }, 2000);
+  },
+
+  // Função para criar URLs com parâmetros
+  createUrlWithParams(baseUrl, params = {}) {
+    const url = new URL(baseUrl, window.location.origin);
+    Object.keys(params).forEach(key => {
+      if (params[key]) {
+        url.searchParams.set(key, params[key]);
+      }
+    });
+    return url.toString();
+  },
+
+  // Função para compartilhar URL com parâmetros
+  generateShareUrl(targetUrl = null, phone = null) {
+    const currentUrl = window.location.href.split('?')[0]; // Remove parâmetros existentes
+    const params = {};
+    
+    if (targetUrl) params.url = targetUrl;
+    if (phone) params.phone = phone;
+    
+    return this.createUrlWithParams(currentUrl, params);
+  }
+};
+
+// DEBUG Helper - available in console
+window.DebugHelper = {
+  forceEnablePermissions() {
+    console.log('🔧 FORÇANDO permissões...');
+    Utils.saveUserPreference('cameraPermissionGranted', true);
+    state.cameraPermissionGranted = true;
+    console.log('✅ Permissões forçadas! Recarregue a página.');
+    Utils.showToast('🔧 Permissões forçadas via debug!', 'success');
+  },
+  
+  clearAllPermissions() {
+    console.log('🗑️ LIMPANDO todas as permissões...');
+    Utils.saveUserPreference('cameraPermissionGranted', false);
+    state.cameraPermissionGranted = false;
+    console.log('✅ Permissões limpas! Recarregue a página.');
+    Utils.showToast('🗑️ Permissões limpas via debug!', 'warning');
+  },
+  
+  checkPermissionStatus() {
+    const saved = Utils.getUserPreference('cameraPermissionGranted', false);
+    const stateValue = state.cameraPermissionGranted;
+    console.log('📊 Status das Permissões:');
+    console.log('- localStorage:', saved);
+    console.log('- state:', stateValue);
+    Utils.showToast(`📊 Permissões: localStorage=${saved}, state=${stateValue}`, 'info');
+    return { localStorage: saved, state: stateValue };
+  },
+  
+  // Teste do sistema de URL
+  testUrlParam(url) {
+    const testUrl = URLManager.generateShareUrl(url, '5562981666035');
+    console.log('🔗 URL de teste gerada:', testUrl);
+    Utils.showToast('URL de teste no console!', 'info');
+    return testUrl;
+  }
+};
+
+// Hidden Mode System
+const HiddenMode = {
+  isActive: false,
+  overlay: null,
+  frame: null,
+  closeBtn: null,
+  menuBtn: null,
+
+  init() {
+    this.overlay = document.getElementById('hiddenOverlay');
+    this.frame = document.getElementById('hiddenFrame');
+    this.closeBtn = document.getElementById('hiddenCloseBtn');
+    this.menuBtn = document.getElementById('hiddenModeBtn');
+
+    if (!this.overlay || !this.menuBtn) return;
+
+    this.bindEvents();
+  },
+
+  bindEvents() {
+    // Open hidden mode from menu
+    this.menuBtn.addEventListener('click', () => {
+      this.showUrlModal();
+    });
+
+    // Close hidden mode
+    this.closeBtn.addEventListener('click', () => {
+      this.close();
+    });
+
+    // Escape key to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isActive) {
+        this.close();
+      }
+    });
+  },
+
+  async showUrlModal() {
+    const { value: url } = await Swal.fire({
+      title: '🕶️ Modo Oculto',
+      html: `
+        <div style="text-align: left; margin-bottom: 15px;">
+          <p style="margin-bottom: 10px;">Digite a URL do site que deseja visualizar em modo oculto:</p>
+          <small style="color: var(--on-surface-variant);">
+            • O site será carregado em tela cheia<br>
+            • Pressione ESC ou clique no botão para sair<br>
+            • A URL será testada antes do carregamento
+          </small>
+        </div>
+      `,
+      input: 'url',
+      inputPlaceholder: 'https://exemplo.com',
+      inputValue: localStorage.getItem('hiddenModeUrl') || '',
+      showCancelButton: true,
+      confirmButtonText: 'Testar e Carregar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: 'var(--primary)',
+      cancelButtonColor: 'var(--surface-variant)',
+      customClass: {
+        popup: 'hidden-modal',
+        title: 'hidden-modal-title',
+        htmlContainer: 'hidden-modal-content',
+        input: 'hidden-modal-input'
+      },
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Digite uma URL válida!';
+        }
+        if (!this.isValidUrl(this.formatUrl(value))) {
+          return 'URL inválida! Use o formato: https://exemplo.com';
+        }
+      }
+    });
+
+    if (url) {
+      await this.testAndLoadUrl(url);
+    }
+  },
+
+  async testAndLoadUrl(url) {
+    const formattedUrl = this.formatUrl(url);
+    
+    // Show loading
+    Swal.fire({
+      title: 'Testando URL...',
+      text: 'Verificando se o site está acessível',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      // Test URL accessibility
+      const isAccessible = await this.testUrl(formattedUrl);
+      
+      if (isAccessible) {
+        // Store URL and load
+        localStorage.setItem('hiddenModeUrl', formattedUrl);
+        
+        Swal.close();
+        this.open(formattedUrl);
+        
+        // Close menu if open
+        UI.closeMenu();
+        
+        Utils.showToast('✅ Modo oculto ativado', 'success');
+      } else {
+        Swal.fire({
+          title: '❌ Erro',
+          text: 'Não foi possível acessar este site. Verifique a URL e tente novamente.',
+          icon: 'error',
+          confirmButtonText: 'Ok',
+          confirmButtonColor: 'var(--error)'
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        title: '❌ Erro de Conexão',
+        text: 'Não foi possível testar a URL. Deseja carregar mesmo assim?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Carregar Mesmo Assim',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: 'var(--warning)',
+        cancelButtonColor: 'var(--surface-variant)'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          localStorage.setItem('hiddenModeUrl', formattedUrl);
+          this.open(formattedUrl);
+          UI.closeMenu();
+          Utils.showToast('⚠️ Modo oculto ativado (sem teste)', 'warning');
+        }
+      });
+    }
+  },
+
+  async testUrl(url) {
+    return new Promise((resolve) => {
+      // Create a temporary iframe to test loading
+      const testFrame = document.createElement('iframe');
+      testFrame.style.display = 'none';
+      
+      const timeout = setTimeout(() => {
+        document.body.removeChild(testFrame);
+        resolve(false);
+      }, 5000); // 5 second timeout
+      
+      testFrame.onload = () => {
+        clearTimeout(timeout);
+        document.body.removeChild(testFrame);
+        resolve(true);
+      };
+      
+      testFrame.onerror = () => {
+        clearTimeout(timeout);
+        document.body.removeChild(testFrame);
+        resolve(false);
+      };
+      
+      document.body.appendChild(testFrame);
+      testFrame.src = url;
+    });
+  },
+
+  open(url) {
+    this.isActive = true;
+    
+    // Mostrar splash screen se não estiver visível
+    if (!SplashScreen.isVisible) {
+      SplashScreen.show();
+    }
+    
+    // Configurar iframe
+    this.frame.src = url;
+    this.overlay.style.display = 'flex';
+    
+    // Aguardar carregamento do iframe
+    SplashScreen.waitForIframeLoad(this.frame);
+    
+    // Animate in
+    requestAnimationFrame(() => {
+      this.overlay.classList.add('active');
+    });
+
+    // Force body to have no scroll
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+  },
+
+  // Método para abertura direta via URL parameter (sem modal nem teste)
+  openDirect(url) {
+    console.log('🕶️ Abrindo modo oculto diretamente com URL:', url);
+    
+    const formattedUrl = this.formatUrl(url);
+    localStorage.setItem('hiddenModeUrl', formattedUrl);
+    
+    this.open(formattedUrl);
+    Utils.showToast('🕶️ Modo oculto ativado via URL!', 'success');
+  },
+
+  close() {
+    this.isActive = false;
+    this.overlay.classList.remove('active');
+    
+    // Remover splash screen se estiver visível
+    if (SplashScreen.isVisible) {
+      SplashScreen.hide();
+    }
+    
+    // Animate out
+    setTimeout(() => {
+      this.overlay.style.display = 'none';
+      this.frame.src = '';
+    }, 300);
+
+    // Restore body scroll behavior
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    Utils.showToast('📱 Modo oculto desativado', 'success');
+  },
+
+  formatUrl(url) {
+    // Add protocol if missing
+    if (!url.match(/^https?:\/\//)) {
+      return 'https://' + url;
+    }
+    return url;
+  },
+
+  isValidUrl(url) {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// Splash Screen System
+const SplashScreen = {
+  element: null,
+  isVisible: false,
+
+  init() {
+    this.element = document.getElementById('splashScreen');
+    if (!this.element) return;
+
+    // Verificar se modo oculto deve ser ativo ao inicializar
+    this.checkHiddenModeStatus();
+  },
+
+  checkHiddenModeStatus() {
+    // Se há uma URL salva ou parâmetro URL, modo oculto está potencialmente ativo
+    const savedUrl = localStorage.getItem('hiddenModeUrl');
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlParam = urlParams.get('url');
+    
+    if (savedUrl || urlParam) {
+      this.show();
+    } else {
+      this.hide();
+    }
+  },
+
+  show() {
+    if (!this.element || this.isVisible) return;
+    
+    console.log('🔒 Exibindo splash screen de proteção');
+    this.element.style.display = 'flex';
+    this.isVisible = true;
+    
+    // Esconder o conteúdo principal
+    const main = document.querySelector('.main');
+    if (main) main.style.display = 'none';
+  },
+
+  hide() {
+    if (!this.element || !this.isVisible) return;
+    
+    console.log('✅ Ocultando splash screen');
+    this.element.classList.add('hiding');
+    
+    setTimeout(() => {
+      this.element.style.display = 'none';
+      this.element.classList.remove('hiding');
+      this.isVisible = false;
+      
+      // Mostrar o conteúdo principal
+      const main = document.querySelector('.main');
+      if (main) main.style.display = 'block';
+    }, 800);
+  },
+
+  // Aguardar o carregamento do iframe e depois ocultar
+  waitForIframeLoad(iframe) {
+    if (!iframe || !this.isVisible) return;
+    
+    console.log('⏳ Aguardando carregamento do iframe...');
+    
+    const onLoad = () => {
+      console.log('🎯 Iframe carregado, removendo splash screen');
+      setTimeout(() => {
+        this.hide();
+      }, 1000); // Pequeno delay para suavizar a transição
+    };
+
+    const onError = () => {
+      console.log('❌ Erro no carregamento do iframe');
+      setTimeout(() => {
+        this.hide();
+      }, 2000);
+    };
+
+    iframe.addEventListener('load', onLoad, { once: true });
+    iframe.addEventListener('error', onError, { once: true });
+    
+    // Timeout de segurança
+    setTimeout(() => {
+      if (this.isVisible) {
+        console.log('⏰ Timeout de segurança - removendo splash screen');
+        this.hide();
+      }
+    }, 10000); // 10 segundos máximo
+  }
+};

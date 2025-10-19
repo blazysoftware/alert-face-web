@@ -4,7 +4,7 @@
   --primary: #8b5cf6;
   --primary-hover: #7c3aed;
   --primary-light: #a78bfa;
-  --secondary: #6b7280;
+  --secondary: #212529;
   --background: #ffffff;
   --surface: #f8fafc;
   --surface-variant: #e2e8f0;
@@ -62,7 +62,7 @@ body {
   height: 100vh;
   width: 100vw;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Header */
@@ -165,6 +165,13 @@ body {
   margin-top: 56px;
   padding: 16px;
   max-width: 100%;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Adicionar momentum scrolling no iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Suavizar o scroll */
+  scroll-behavior: smooth;
 }
 
 /* Video Section */
@@ -561,6 +568,7 @@ input:checked + .slider:before {
 .close-menu {
   background: none;
   border: none;
+  color: #ffffff;
   font-size: 24px;
   cursor: pointer;
   padding: 8px;
@@ -1023,6 +1031,292 @@ input:checked + .slider:before {
               0 0 25px rgba(168, 85, 247, 0.2);
 }
 
+/* Custom Scrollbar Styles */
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--outline);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--on-surface-variant);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--primary);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark theme scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:active {
+  background: var(--primary);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline) transparent;
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: rgba(168, 85, 247, 0.3) transparent;
+}
+
+/* Custom scrollbar for main content area */
+.main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: var(--surface-variant);
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.main::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.main::-webkit-scrollbar-thumb:hover {
+  opacity: 1;
+  background: var(--primary-hover);
+}
+
+/* Side menu scrollbar */
+.side-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.side-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.side-menu::-webkit-scrollbar-thumb {
+  background: var(--outline);
+  border-radius: 2px;
+}
+
+.side-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Hidden mode iframe scrollbar (if needed) */
+#hiddenFrame::-webkit-scrollbar {
+  width: 8px;
+}
+
+#hiddenFrame::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+#hiddenFrame::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+#hiddenFrame::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Mobile scrollbar adjustments */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .main::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .side-menu::-webkit-scrollbar {
+    width: 3px;
+  }
+}
+
+/* Smooth scrolling behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+.main {
+  scroll-behavior: smooth;
+}
+
+.side-menu {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar fade animation */
+.main,
+.side-menu {
+  scrollbar-gutter: stable;
+}
+
+/* Custom scroll indicators */
+.scroll-indicator {
+  position: fixed;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 100px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 999;
+}
+
+.scroll-indicator.visible {
+  opacity: 1;
+}
+
+.scroll-indicator::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 30%;
+  background: var(--primary);
+  border-radius: 1px;
+  transition: transform 0.2s ease;
+}
+
+/* Enhanced scrollbar for better UX */
+.main:hover::-webkit-scrollbar-thumb,
+.side-menu:hover::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  opacity: 1;
+}
+
+/* Scrollbar auto-hide on mobile */
+@media (max-width: 768px) {
+  .main::-webkit-scrollbar,
+  .side-menu::-webkit-scrollbar {
+    width: 2px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .main:hover::-webkit-scrollbar,
+  .side-menu:hover::-webkit-scrollbar,
+  .main:active::-webkit-scrollbar,
+  .side-menu:active::-webkit-scrollbar {
+    opacity: 1;
+  }
+}
+
+/* Prevent overscroll bounce on iOS */
+body {
+  overscroll-behavior: contain;
+}
+
+.main,
+.side-menu {
+  overscroll-behavior: contain;
+}
+
+/* Scroll state classes */
+body.scrolling {
+  pointer-events: none;
+}
+
+body.scrolling .main::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  opacity: 1;
+}
+
+/* Custom scroll shadows */
+.main::before,
+.main::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8px;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.main::before {
+  top: 56px;
+  background: linear-gradient(to bottom, var(--background) 0%, transparent 100%);
+  opacity: 0;
+}
+
+.main::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--background) 0%, transparent 100%);
+  opacity: 0;
+}
+
+.main.has-scroll-top::before {
+  opacity: 1;
+}
+
+.main.has-scroll-bottom::after {
+  opacity: 1;
+}
+
+/* Dark theme scroll shadows */
+[data-theme="dark"] .main::before {
+  background: linear-gradient(to bottom, var(--background) 0%, transparent 100%);
+}
+
+[data-theme="dark"] .main::after {
+  background: linear-gradient(to top, var(--background) 0%, transparent 100%);
+}
+
+/* Hover effects for better UX */
+.main:hover::-webkit-scrollbar {
+  width: 10px;
+}
+
+.side-menu:hover::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Active scrolling state */
+.main:active::-webkit-scrollbar-thumb,
+.side-menu:active::-webkit-scrollbar-thumb {
+  background: var(--primary-hover);
+}
+
+/* Focus within for accessibility */
+.main:focus-within::-webkit-scrollbar-thumb,
+.side-menu:focus-within::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  opacity: 0.8;
+}
+
 /* Animation Keyframes */
 @keyframes fadeInUp {
   from {
@@ -1072,11 +1366,12 @@ input:checked + .slider:before {
     margin-bottom: 12px;
   }
   
-  /* Otimizar controles para toque - layout vertical quando necessário */
+  /* Otimizar controles para toque - layout responsivo */
   .controls {
     gap: 6px;
     margin-top: 8px;
     flex-direction: row;
+    flex-wrap: wrap;
   }
   
   .control-btn {
@@ -1084,8 +1379,40 @@ input:checked + .slider:before {
     border-radius: 24px;
     font-size: 15px;
     font-weight: 600;
-    padding: 0 16px;
-    min-width: 100px; /* Reduzido de 120px para 100px */
+    padding: 0 12px; /* Reduzido para acomodar 3 botões */
+    min-width: 90px; /* Reduzido ainda mais */
+    flex: 1;
+  }
+  
+  /* Quando há 3 botões, ajustar layout */
+  .controls:has(> .control-btn:nth-child(3)) .control-btn {
+    font-size: 14px;
+    padding: 0 8px;
+    min-width: 80px;
+  }
+  
+  /* Fallback para browsers sem suporte a :has() */
+  @media (max-width: 480px) {
+    .controls .control-btn {
+      font-size: 13px;
+      padding: 0 6px;
+      min-width: 70px;
+    }
+  }
+  
+  /* Layout específico para 3 botões */
+  .controls.three-buttons .control-btn {
+    font-size: 14px;
+    padding: 0 8px;
+    min-width: 80px;
+  }
+  
+  @media (max-width: 400px) {
+    .controls.three-buttons .control-btn {
+      font-size: 12px;
+      padding: 0 6px;
+      min-width: 70px;
+    }
   }
   
   /* Stats mais compactos em 3 colunas */
@@ -1296,17 +1623,16 @@ input:checked + .slider:before {
 
 /* Safe Area Adjustments for iPhone notch, etc. */
 @supports (padding: max(0px)) {
-  body {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-  
   .header {
     padding-top: env(safe-area-inset-top);
+    height: calc(56px + env(safe-area-inset-top));
   }
   
   .main {
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    margin-top: calc(56px + env(safe-area-inset-top));
+    height: calc(100vh - 56px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
   
   .toast-container {
@@ -1500,6 +1826,136 @@ input:checked + .slider:before {
   line-height: 1.5 !important;
 }
 
+/* Hidden Mode Modal */
+.hidden-modal {
+  border-radius: 16px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.hidden-modal-title {
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+
+.hidden-modal-content {
+  color: var(--on-surface) !important;
+  line-height: 1.5 !important;
+}
+
+.hidden-modal-input {
+  border: 2px solid var(--outline) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  font-size: 16px !important;
+  font-family: 'Inter', monospace !important;
+  text-align: center !important;
+}
+
+.hidden-modal-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+}
+
+/* Dark theme support for Hidden Mode Modal */
+[data-theme="dark"] .hidden-modal {
+  background: var(--surface-elevated) !important;
+  color: var(--on-surface) !important;
+}
+
+[data-theme="dark"] .hidden-modal-title {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .hidden-modal-content {
+  color: var(--on-surface) !important;
+}
+
+[data-theme="dark"] .hidden-modal-input {
+  background: var(--surface) !important;
+  color: var(--on-surface) !important;
+  border: 2px solid var(--outline) !important;
+}
+
+[data-theme="dark"] .hidden-modal-input:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Hidden Mode System */
+.hidden-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  z-index: 2000;
+  display: none;
+  flex-direction: column;
+}
+
+.hidden-overlay.active {
+  display: flex;
+}
+
+#hiddenFrame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: white;
+}
+
+.hidden-close-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(220, 38, 38, 0.1);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  z-index: 2001;
+}
+
+.hidden-close-btn:hover {
+  background: rgba(185, 28, 28, 0.2);
+  transform: scale(1.05);
+}
+
+.hidden-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Dark Theme Support for Hidden Mode */
+[data-theme="dark"] .hidden-overlay {
+  background: #000;
+}
+
+/* Animation for Hidden Mode */
+.hidden-overlay {
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hidden-overlay.active {
+  opacity: 1;
+}
+
+/* Mobile Optimizations for Hidden Mode */
+@media (max-width: 768px) {
+  .hidden-close-btn {
+    top: 15px;
+    right: 15px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
 /* Desktop and Tablet Styles */
 @media (min-width: 768px) {
   .main {
@@ -1523,5 +1979,158 @@ input:checked + .slider:before {
     height: 55vh;
     min-height: 400px;
     max-height: 500px;
+  }
+}
+
+/* ==============================================
+   SPLASH SCREEN STYLES
+   ============================================== */
+
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #212529, #1b3957);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: splashFadeIn 0.5s ease-out;
+}
+
+.splash-content {
+  text-align: center;
+  color: white;
+  padding: 2rem;
+  max-width: 400px;
+}
+
+.splash-logo {
+  margin-bottom: 3rem;
+}
+
+.splash-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: block;
+  animation: pulse 2s infinite;
+}
+
+.splash-logo h1 {
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.splash-logo p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  margin: 0;
+  font-weight: 300;
+}
+
+.splash-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.loading-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.8);
+  animation: dotBounce 1.4s ease-in-out infinite both;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+.loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+.splash-loader p {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin: 0;
+  font-weight: 300;
+}
+
+/* Splash Screen Animations */
+@keyframes splashFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splashFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes dotBounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Splash Screen Hide Animation */
+.splash-screen.hiding {
+  animation: splashFadeOut 0.8s ease-out forwards;
+}
+
+/* Dark theme splash */
+[data-theme="dark"] .splash-screen {
+  background: linear-gradient(135deg, #0f0f23, var(--primary));
+}
+
+/* Mobile optimizations for splash */
+@media (max-width: 768px) {
+  .splash-content {
+    padding: 1.5rem;
+  }
+  
+  .splash-icon {
+    font-size: 3rem;
+  }
+  
+  .splash-logo h1 {
+    font-size: 2rem;
+  }
+  
+  .splash-logo p {
+    font-size: 1rem;
   }
 }
