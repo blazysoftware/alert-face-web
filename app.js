@@ -945,8 +945,13 @@ const AutoStart = {
         break;
         
       default:
-        // Primeira vez ou status desconhecido, mostrar tela de permissão
-        this.showCameraPermission();
+        // Primeira vez ou status desconhecido, auto-aceitar permissão
+        console.log('🔄 Auto-aceite ativado - tentando obter permissão automaticamente');
+        Utils.showToast('📷 Obtendo acesso à câmera automaticamente...', 'info');
+        
+        setTimeout(() => {
+          this.grantPermission();
+        }, 1500);
         break;
     }
   },
@@ -999,7 +1004,17 @@ const AutoStart = {
   },
 
   showCameraPermission() {
-    els.cameraPermission.style.display = 'flex';
+    // Auto-aceite: tentar conceder permissão automaticamente
+    console.log('🔄 Auto-aceite ativado - tentando conceder permissão automaticamente...');
+    Utils.showToast('📷 Solicitando acesso à câmera automaticamente...', 'info');
+    
+    // Pequeno delay para mostrar o toast
+    setTimeout(() => {
+      this.grantPermission();
+    }, 1000);
+    
+    // Não mostrar o overlay de permissão
+    // els.cameraPermission.style.display = 'flex';
   },
 
   hideCameraPermission() {
@@ -1007,19 +1022,22 @@ const AutoStart = {
   },
 
   async grantPermission() {
-    console.log('🔄 Iniciando processo de concessão de permissão...');
+    console.log('🔄 Auto-aceite: Iniciando processo de concessão de permissão...');
+    Utils.showToast('🔑 Solicitando permissão da câmera...', 'info');
     
     // Tentar acessar a câmera primeiro
     const hasAccess = await PermissionManager.requestCameraAccess();
     
     if (!hasAccess) {
-      console.log('❌ Acesso à câmera foi negado');
-      Utils.showToast('❌ Acesso à câmera negado', 'error');
+      console.log('❌ Acesso à câmera foi negado pelo usuário');
+      Utils.showToast('❌ Permissão de câmera negada pelo usuário', 'error');
+      Utils.showToast('💡 Clique no ícone da câmera na barra do navegador para permitir', 'info', 6000);
       this.showPermissionDeniedHelp();
       return;
     }
 
-    console.log('✅ Acesso à câmera concedido, salvando permissão...');
+    console.log('✅ Auto-aceite bem-sucedido! Acesso à câmera concedido, salvando permissão...');
+    Utils.showToast('✅ Câmera autorizada automaticamente!', 'success');
     
     // SEMPRE salvar permissão (remover necessidade de checkbox)
     Utils.saveUserPreference('cameraPermissionGranted', true);
@@ -2107,10 +2125,10 @@ const UI = {
       AutoStart.cancelCountdown();
     });
 
-    // Camera permission
-    els.allowCameraBtn.addEventListener('click', () => {
-      AutoStart.grantPermission();
-    });
+    // Camera permission (Auto-Accept - botão removido)
+    // els.allowCameraBtn.addEventListener('click', () => {
+    //   AutoStart.grantPermission();
+    // });
 
     // Menu toggle
     els.menuBtn.addEventListener('click', () => {

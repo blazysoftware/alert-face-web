@@ -300,6 +300,38 @@ body {
   cursor: pointer;
 }
 
+/* Auto-Permission Styles */
+.auto-permission-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: pulse 2s infinite;
+}
+
+.auto-permission-info {
+  text-align: left;
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(var(--primary-rgb), 0.1);
+  border-radius: 12px;
+  border-left: 4px solid var(--primary);
+}
+
+.auto-permission-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--on-surface);
+}
+
+.auto-permission-info p:last-child {
+  margin-bottom: 0;
+}
+
+/* Add CSS custom property for primary color with RGB values */
+:root {
+  --primary-rgb: 139, 92, 246;
+}
+
 /* Permission Help Overlay */
 .help-steps {
   text-align: left;
